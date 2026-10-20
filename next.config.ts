@@ -8,8 +8,8 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   agentRules: false,
   devIndicators: { position: 'bottom-right' },
-  async headers() {
-    return [
+  headers() {
+    return Promise.resolve([
       {
         source: '/:path*',
         headers: [
@@ -19,7 +19,7 @@ const nextConfig: NextConfig = {
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
         ],
       },
-    ];
+    ]);
   },
 };
 
