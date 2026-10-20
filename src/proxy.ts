@@ -1,10 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { env } from '@/config/env';
+import { ROUTES } from '@/config/routes';
 import { SESSION_COOKIE } from '@/config/session';
 import { safeRedirectPath } from '@/lib/auth/safe-redirect';
 import { buildCsp, createNonce } from '@/lib/csp';
-
-const LOGIN_PATH = '/login';
 
 /** The page the visitor asked for, to return to after login. Next's `_rsc` token is not part of it. */
 const requestedPath = (request: NextRequest) => {
@@ -21,10 +20,10 @@ const requestedPath = (request: NextRequest) => {
  */
 export function proxy(request: NextRequest) {
   const hasSession = !!request.cookies.get(SESSION_COOKIE)?.value;
-  const isLogin = request.nextUrl.pathname === LOGIN_PATH;
+  const isLogin = request.nextUrl.pathname === ROUTES.login;
 
   if (!hasSession && !isLogin) {
-    const url = new URL(LOGIN_PATH, request.url);
+    const url = new URL(ROUTES.login, request.url);
     const from = requestedPath(request);
     if (from !== '/') url.searchParams.set('from', from);
     return NextResponse.redirect(url);

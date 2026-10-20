@@ -29,9 +29,16 @@ const TEST_FILES = ['**/*.test.{ts,tsx}', 'src/test/**'];
 const CONFIG_FILES = ['*.config.{js,mjs,ts,mts}'];
 
 // Guardrails: where each restricted construct is still allowed.
-const FETCH_ALLOWED = ['src/lib/api/**', 'src/lib/server/**', 'src/app/bff/**', ...TEST_FILES];
+const FETCH_ALLOWED = [
+  'src/lib/api/**',
+  'src/lib/server/**',
+  'src/app/bff/**',
+  'vitest.setup*.ts', // resolves relative URLs for jsdom tests
+  ...TEST_FILES,
+];
 const ENV_ALLOWED = [
   'src/config/env.ts',
+  'src/config/runtime.ts', // client-safe NODE_ENV flag
   'src/instrumentation*.ts',
   'server/index.ts', // CLI entry of the mock API
   ...CONFIG_FILES,

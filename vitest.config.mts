@@ -9,7 +9,7 @@ const SERVER_TESTS = [
   'src/proxy*.test.ts',
   'src/instrumentation*.test.ts',
   'src/lib/{server,auth}/**/*.test.ts',
-  'src/**/*.server.test.ts',
+  'src/**/*.server.test.{ts,tsx}',
   'server/**/*.test.ts',
 ];
 
