@@ -6,6 +6,7 @@
 // - One alias, `@/*` -> `src/*`; relative imports are `./` or a single `../`.
 // - No barrel files, named exports (default exports only in Next special files and configs).
 // - The API contract (Zod schemas and types, no Next dependencies) lives in `src/lib/contract`.
+// - The mock API lives in `server/` (outside `src`, so the layer boundaries do not apply to it).
 // - Layers: app -> features -> components -> lib -> config. Features never import each other.
 import js from '@eslint/js';
 import pluginQuery from '@tanstack/eslint-plugin-query';
@@ -29,7 +30,12 @@ const CONFIG_FILES = ['*.config.{js,mjs,ts,mts}'];
 
 // Guardrails: where each restricted construct is still allowed.
 const FETCH_ALLOWED = ['src/lib/api/**', 'src/lib/server/**', 'src/app/bff/**', ...TEST_FILES];
-const ENV_ALLOWED = ['src/config/env.ts', 'src/instrumentation*.ts', ...CONFIG_FILES];
+const ENV_ALLOWED = [
+  'src/config/env.ts',
+  'src/instrumentation*.ts',
+  'server/index.ts', // CLI entry of the mock API
+  ...CONFIG_FILES,
+];
 const QUERY_KEY_ALLOWED = ['src/features/*/api/**', ...TEST_FILES];
 
 const SELECTORS = {
@@ -165,6 +171,12 @@ export default defineConfig([
   {
     files: QUERY_KEY_ALLOWED,
     rules: { 'no-restricted-syntax': restrictSyntax(...without('queryKeyLiteral')) },
+  },
+  // The mock API lives outside `src`, so it (and the test helper that serves it) cannot use the
+  // `@/` alias and reaches the contract and the mock with relative paths.
+  {
+    files: ['server/**', 'src/test/mock-api.ts'],
+    rules: { 'no-restricted-imports': 'off' },
   },
   // shadcn code guards optional props defensively.
   {
