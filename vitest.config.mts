@@ -45,6 +45,8 @@ export default defineConfig({
         test: {
           name: 'server',
           environment: 'node',
+          // The environment is validated when `@/config/env` is imported.
+          env: { API_URL: 'http://backend.test', COOKIE_SECURE: 'false' },
           include: SERVER_TESTS,
           setupFiles: ['./vitest.setup.ts'],
         },
@@ -57,8 +59,6 @@ export default defineConfig({
         'src/components/ui/**',
         'src/app/**/{page,layout,not-found,error,loading,global-error}.tsx',
         'src/test/**',
-        'src/proxy.ts',
-        'src/instrumentation*.ts',
         '**/*.test.*',
         '**/*.d.ts',
       ],

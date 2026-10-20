@@ -235,6 +235,11 @@ export default defineConfig([
             { from: types('components-ui'), allow: { to: types('components-ui', 'lib') } },
             { from: types('lib'), allow: { to: types('lib', 'config') } },
             { from: types('config'), allow: { to: types('config') } },
+            // `instrumentation.ts` loads its Node-only part, and tests import the entry files.
+            {
+              from: { file: { categories: ['app-entry', 'test'] } },
+              allow: { to: { file: { categories: 'app-entry' } } },
+            },
             // Tests and test helpers may import anything; production code never imports them.
             {
               from: { file: { categories: 'test' } },
