@@ -23,4 +23,16 @@ describe('AppHeader', () => {
       screen.getByRole('button', { name: 'Toggle dark mode' }),
     );
   });
+
+  it('shows the account area after the theme toggle', () => {
+    render(
+      <AppHeader>
+        <button type="button">Account</button>
+      </AppHeader>,
+    );
+
+    expect(screen.getByRole('banner')).toContainElement(
+      screen.getByRole('button', { name: 'Account' }),
+    );
+  });
 });

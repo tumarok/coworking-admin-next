@@ -19,8 +19,8 @@ export class ApiError extends Error {
 export const fallbackErrorMessage = (status: number) =>
   status >= 500 ? 'The server failed to handle the request' : 'The request failed';
 
-/** Reads the error body of a non-2xx response; never throws. */
-export const parseApiError = async (response: Response): Promise<ApiError> => {
+/** The error body of a non-2xx response when it has the API's shape, otherwise `undefined`. */
+export const readApiErrorBody = async (response: Response): Promise<ApiErrorBody | undefined> => {
   const text = await response.text().catch(() => '');
   let json: unknown;
   try {
@@ -29,8 +29,12 @@ export const parseApiError = async (response: Response): Promise<ApiError> => {
     json = undefined;
   }
   const parsed = apiErrorSchema.safeParse(json);
-  return new ApiError(
-    response.status,
-    parsed.success ? parsed.data : { message: fallbackErrorMessage(response.status) },
-  );
+  return parsed.success ? parsed.data : undefined;
 };
+
+/** Reads the error body of a non-2xx response; never throws. */
+export const parseApiError = async (response: Response): Promise<ApiError> =>
+  new ApiError(
+    response.status,
+    (await readApiErrorBody(response)) ?? { message: fallbackErrorMessage(response.status) },
+  );

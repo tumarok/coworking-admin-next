@@ -108,6 +108,17 @@ describe('visitor with a session', () => {
     },
   );
 
+  it('stays on the login page when the API rejected their cookie, so a stale cookie cannot loop', () => {
+    const response = visit('/login?expired=1', { session: true });
+
+    expect(getRedirectUrl(response)).toBeNull();
+    expect(response.headers.get('content-security-policy')).toContain("'nonce-");
+  });
+
+  it('only honours expired=1, not any value', () => {
+    expect(getRedirectUrl(visit('/login?expired=0', { session: true }))).toBe(`${ORIGIN}/`);
+  });
+
   it('leaves the login form submission alone', () => {
     const action = visit('/login', {
       session: true,

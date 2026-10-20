@@ -1,4 +1,5 @@
 const PLACEHOLDER_ORIGIN = 'http://placeholder.invalid';
+const NOT_PAGES = ['/login', '/bff', '/_next'];
 // The URL parser silently drops tabs and newlines, so `/\t/host` would become `//host`.
 const hasControlCharacter = (value: string) => {
   for (let i = 0; i < value.length; i++) {
@@ -11,7 +12,8 @@ const hasControlCharacter = (value: string) => {
 /**
  * The path to go to after login, or `null` when `value` is not a path inside this app. Only a
  * plain absolute path passes: no other host, no protocol-relative `//host`, no backslashes
- * (browsers read `\` as `/`) and no `/login` itself, which would loop.
+ * (browsers read `\` as `/`), no `/login` itself (it would loop) and nothing under `/bff` or
+ * `/_next`, which are not pages.
  */
 export const safeRedirectPath = (value: unknown): string | null => {
   if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) return null;
@@ -24,6 +26,10 @@ export const safeRedirectPath = (value: unknown): string | null => {
     return null;
   }
   if (url.origin !== PLACEHOLDER_ORIGIN) return null;
-  if (url.pathname === '/login' || url.pathname.startsWith('/login/')) return null;
+  if (
+    NOT_PAGES.some((prefix) => url.pathname === prefix || url.pathname.startsWith(`${prefix}/`))
+  ) {
+    return null;
+  }
   return value;
 };

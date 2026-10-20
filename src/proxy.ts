@@ -29,9 +29,11 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // A login Server Action is a POST to this page: redirecting it would break the form.
+  // A login Server Action is a POST to this page: redirecting it would break the form. A visitor
+  // sent here as `expired` has a cookie the API rejected: bouncing them back would loop.
   const isPageVisit = request.method === 'GET' || request.method === 'HEAD';
-  if (hasSession && isLogin && isPageVisit && !request.headers.has('next-action')) {
+  const isExpired = request.nextUrl.searchParams.get('expired') === '1';
+  if (hasSession && isLogin && isPageVisit && !isExpired && !request.headers.has('next-action')) {
     const target = safeRedirectPath(request.nextUrl.searchParams.get('from')) ?? '/';
     return NextResponse.redirect(new URL(target, request.url));
   }

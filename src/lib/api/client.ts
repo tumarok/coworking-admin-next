@@ -25,6 +25,8 @@ export const toSearch = (query: Record<string, QueryValue> = {}) => {
   return search ? `?${search}` : '';
 };
 
+// True from the moment the user is leaving until the login page is on screen. Requests still in
+// flight then fail with 401 as well; they must not start a second sign-out.
 let signingOut = false;
 
 // Back from the login page may restore this page from the back/forward cache with the flag still
@@ -36,13 +38,26 @@ if (typeof window !== 'undefined') {
 }
 
 /**
- * An expired or rejected session: drop everything cached for the old user and go to the login
- * page, once. Parallel requests failing together must not start several navigations.
+ * Starts leaving the session: drops everything cached for this user and silences the 401 handler.
+ * A sign-out the user asked for and a session the API rejected both go through here.
+ */
+export const beginSignOut = () => {
+  signingOut = true;
+  getQueryClient().clear();
+};
+
+/** The sign-out is over (the login page shows, or it failed): 401 is handled again. */
+export const endSignOut = () => {
+  signingOut = false;
+};
+
+/**
+ * An expired or rejected session: sign out and go to the login page, once. Parallel requests
+ * failing together must not start several navigations.
  */
 const handleUnauthorized = () => {
   if (signingOut || window.location.pathname === ROUTES.login) return;
-  signingOut = true;
-  getQueryClient().clear();
+  beginSignOut();
   const from = window.location.pathname + window.location.search;
   window.location.assign(
     from === ROUTES.dashboard ? ROUTES.login : `${ROUTES.login}?from=${encodeURIComponent(from)}`,

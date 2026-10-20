@@ -4,6 +4,8 @@ import { env } from '@/config/env';
 const API_PREFIX = '/api/v1';
 /** Generous on purpose: exports and slow lists must not be cut off by the BFF. */
 const BACKEND_TIMEOUT_MS = 5 * 60_000;
+/** For calls a person waits on without a way to cancel (signing in, who am I): fail fast. */
+export const SHORT_TIMEOUT_MS = 10_000;
 
 /**
  * URL of an API path. The parts are joined as strings: `new URL(path, base)` would drop the

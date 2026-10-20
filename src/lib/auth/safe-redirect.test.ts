@@ -26,11 +26,15 @@ describe('safeRedirectPath', () => {
     ['the login page', '/login'],
     ['the login page with a query', '/login?from=/bookings'],
     ['below the login page', '/login/x'],
+    ['the BFF', '/bff/rooms'],
+    ['the BFF root', '/bff'],
+    ['a build asset', '/_next/static/chunk.js'],
   ])('rejects %s', (_name, value) => {
     expect(safeRedirectPath(value)).toBeNull();
   });
 
-  it('does not mistake a longer name for the login page', () => {
+  it('does not mistake a longer name for the login page or the BFF', () => {
     expect(safeRedirectPath('/login-help')).toBe('/login-help');
+    expect(safeRedirectPath('/bffx')).toBe('/bffx');
   });
 });

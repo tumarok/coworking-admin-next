@@ -195,6 +195,24 @@ describe('401 handling', () => {
     expect(assign).toHaveBeenCalledWith('/login?from=%2Frooms%3Fpage%3D2');
   });
 
+  it('ignores a 401 that arrives while the user is signing out, until the sign-out ends', async () => {
+    unauthorized();
+    const { api, beginSignOut, endSignOut } = await load();
+    const { getQueryClient } = await import('@/lib/query-client');
+    const clear = vi.spyOn(getQueryClient(), 'clear');
+
+    beginSignOut();
+    await expect(api.get('items', itemSchema)).rejects.toMatchObject({ status: 401 });
+
+    expect(clear).toHaveBeenCalledTimes(1);
+    expect(assign).not.toHaveBeenCalled();
+
+    endSignOut();
+    await expect(api.get('items', itemSchema)).rejects.toMatchObject({ status: 401 });
+
+    expect(assign).toHaveBeenCalledTimes(1);
+  });
+
   it('single-flights a 401 that answers a mutation as well', async () => {
     server.use(
       http.post('*/bff/items', () => HttpResponse.json({ message: 'Expired' }, { status: 401 })),
