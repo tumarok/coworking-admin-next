@@ -3,9 +3,11 @@ import { QUERY_ROOTS } from '@/config/query-roots';
 import { api } from '@/lib/api/client';
 import {
   bookingSchema,
+  bulkBookingResultSchema,
   type Booking,
   type BookingInput,
   type BookingStatus,
+  type BulkBookingRequest,
 } from '@/lib/contract/booking';
 import { replaceInLists } from '@/lib/query-cache';
 import { bookingKeys } from '@/features/bookings/api/booking-keys';
@@ -58,6 +60,28 @@ export const useChangeBookingStatus = (id: string) => {
     meta: SILENT,
     onSuccess: (booking) => {
       storeSaved(queryClient, booking);
+    },
+  });
+};
+
+/**
+ * Confirms or cancels many bookings at once. The answer is `200` even when some are refused, so
+ * the caller reads `failed`. The response holds ids only: the lists and the page of every booking
+ * named in it are fetched again (a refusal means what the screen showed was out of date), and the
+ * dashboard only when a booking really changed.
+ */
+export const useBulkBookings = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: BulkBookingRequest) =>
+      api.post('bookings/bulk', bulkBookingResultSchema, { body: request }),
+    meta: SILENT,
+    onSuccess: ({ updated, failed }) => {
+      void queryClient.invalidateQueries({ queryKey: bookingKeys.lists() });
+      for (const id of [...updated, ...failed.map((item) => item.id)]) {
+        void queryClient.invalidateQueries({ queryKey: bookingKeys.detail(id) });
+      }
+      if (updated.length > 0) invalidateDashboard(queryClient);
     },
   });
 };

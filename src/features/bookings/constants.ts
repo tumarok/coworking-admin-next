@@ -1,4 +1,8 @@
-import { BOOKING_STATUSES, type BookingStatus } from '@/lib/contract/booking';
+import {
+  BOOKING_STATUSES,
+  type BookingStatus,
+  type BulkBookingAction,
+} from '@/lib/contract/booking';
 import { isoDateSchema } from '@/lib/contract/common';
 import type { Location } from '@/lib/contract/location';
 import { memberFullName, type Member } from '@/lib/contract/member';
@@ -59,3 +63,15 @@ export const STATUS_ACTIONS: Record<Exclude<BookingStatus, 'pending'>, StatusAct
   no_show: { label: 'No-show', variant: 'outline', confirm: false },
   cancelled: { label: 'Cancel booking', variant: 'destructive', confirm: true },
 };
+
+/** What a bulk action did, for the messages: "2 bookings confirmed". */
+export const BULK_DONE: Record<BulkBookingAction, string> = {
+  confirm: 'confirmed',
+  cancel: 'cancelled',
+};
+
+/** "1 booking", "2 bookings". */
+export const bookingCount = (count: number) => `${count} ${count === 1 ? 'booking' : 'bookings'}`;
+
+/** What the API says of an id it has no booking for; the booking is gone, not merely refused. */
+export const NOT_FOUND_REASON = 'Booking not found';

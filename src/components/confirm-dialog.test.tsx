@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ConfirmDialog } from './confirm-dialog';
@@ -133,5 +133,39 @@ describe('ConfirmDialog', () => {
     renderDialog();
 
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('hands focus to `finalFocus` after it closes, not to a button that is gone', async () => {
+    const target = document.createElement('h1');
+    target.tabIndex = -1;
+    document.body.append(target);
+    const { rerender } = render(
+      <ConfirmDialog
+        open
+        onOpenChange={vi.fn()}
+        title="Delete room?"
+        description="This cannot be undone."
+        confirmLabel="Delete"
+        onConfirm={vi.fn()}
+        finalFocus={() => target}
+      />,
+    );
+
+    rerender(
+      <ConfirmDialog
+        open={false}
+        onOpenChange={vi.fn()}
+        title="Delete room?"
+        description="This cannot be undone."
+        confirmLabel="Delete"
+        onConfirm={vi.fn()}
+        finalFocus={() => target}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(target).toHaveFocus();
+    });
+    target.remove();
   });
 });

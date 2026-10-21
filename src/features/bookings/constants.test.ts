@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { BOOKING_STATUSES, BOOKING_TRANSITIONS } from '@/lib/contract/booking';
 import {
+  bookingCount,
+  BULK_DONE,
   FILTER_VALUES,
   isDeleted,
   locationText,
@@ -86,5 +88,19 @@ describe('labels', () => {
         joinedAt: '2026-01-01',
       }),
     ).toBe('Ada Lovelace · ada@example.com');
+  });
+});
+
+describe('bookingCount', () => {
+  it('counts in the singular for one and the plural for the rest', () => {
+    expect(bookingCount(1)).toBe('1 booking');
+    expect(bookingCount(2)).toBe('2 bookings');
+    expect(bookingCount(0)).toBe('0 bookings');
+  });
+});
+
+describe('BULK_DONE', () => {
+  it('says what each action did', () => {
+    expect(BULK_DONE).toEqual({ confirm: 'confirmed', cancel: 'cancelled' });
   });
 });

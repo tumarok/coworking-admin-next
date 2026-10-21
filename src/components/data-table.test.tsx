@@ -53,10 +53,12 @@ const serveItems = (all: Item[] = ALL) => {
 /** A list screen wired the way the feature pages are: URL state -> query -> table. */
 function Harness({
   selectable = false,
+  locked = false,
   labelRows = true,
   empty,
 }: {
   selectable?: boolean;
+  locked?: boolean;
   labelRows?: boolean;
   empty?: string;
 }) {
@@ -82,7 +84,7 @@ function Harness({
       onRetry={() => void items.refetch()}
       {...(labelRows && { rowLabel: (row: Item) => row.name })}
       {...(empty && { empty })}
-      {...(selectable && { selection: { state: selected, onChange: setSelected } })}
+      {...(selectable && { selection: { state: selected, onChange: setSelected, locked } })}
     />
   );
 }
@@ -282,6 +284,17 @@ describe('DataTable', () => {
       await user.click(screen.getByRole('button', { name: 'Previous page' }));
       await screen.findByRole('cell', { name: 'Item 1' });
       expect(checkboxOf(1)).toBeChecked();
+    });
+
+    it('turns every checkbox off while the selection is locked', async () => {
+      serveItems();
+      renderWithProviders(<Harness selectable locked />);
+      await screen.findByRole('cell', { name: 'Item 1' });
+
+      // A Base UI checkbox is a button-like element: it says it is off with `aria-disabled`.
+      const boxes = screen.getAllByRole('checkbox');
+      expect(boxes).toHaveLength(21);
+      for (const box of boxes) expect(box).toHaveAttribute('aria-disabled', 'true');
     });
 
     it('names each row checkbox after its row', async () => {

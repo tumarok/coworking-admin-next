@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { PencilIcon, PlusIcon } from 'lucide-react';
+import { toast } from 'sonner';
 import { AsyncCombobox } from '@/components/async-combobox';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { DataTable, dataTableColumns } from '@/components/data-table';
 import { FilterSelect } from '@/components/filter-select';
 import { PageHeader } from '@/components/page-header';
@@ -14,7 +16,7 @@ import { BookingStatusBadge } from '@/components/status-badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ROUTES } from '@/config/routes';
-import type { Booking } from '@/lib/contract/booking';
+import type { Booking, BulkBookingAction } from '@/lib/contract/booking';
 import { useListParams } from '@/lib/list-params';
 import { formatMoney } from '@/lib/money';
 import {
@@ -24,15 +26,24 @@ import {
   roomOptionQuery,
   roomOptionsQuery,
 } from '@/features/bookings/api/booking-queries';
+import { useBulkBookings } from '@/features/bookings/api/booking-mutations';
 import { useLocationZones } from '@/features/bookings/api/booking-zones';
+import { BulkActionsBar } from '@/features/bookings/components/bulk-actions-bar';
+import {
+  BulkFailedDialog,
+  type BulkFailure,
+} from '@/features/bookings/components/bulk-failed-dialog';
 import { BookingFormDialog } from '@/features/bookings/components/booking-form-dialog';
 import { BookingStatusActions } from '@/features/bookings/components/booking-status-actions';
 import {
+  bookingCount,
+  BULK_DONE,
   FILTER_KEYS,
   FILTER_VALUES,
   locationOptionLabel,
   memberLabel,
   memberText,
+  NOT_FOUND_REASON,
   roomLabel,
   roomText,
   STATUS_OPTIONS,
@@ -53,10 +64,103 @@ export function BookingsList() {
   const [formOpen, setFormOpen] = useState(false);
   const [formTarget, setFormTarget] = useState<Booking | null>(null);
 
+  // The selection is kept as records, not ids: it outlives the page of rows it was made on, and
+  // the dialog that names a refused booking needs its room and time after the rows are gone.
+  const [selected, setSelected] = useState<Booking[]>([]);
+  const bulk = useBulkBookings();
+  // `count` is what the question was asked about, so its title stays put while it fades out; a
+  // new `session` gives each question a fresh dialog.
+  const [cancelAsk, setCancelAsk] = useState({ open: false, count: 0, session: 0 });
+  // The refused bookings of the last request. A new `session` remounts the dialog, so it never
+  // shows the previous result for a moment.
+  const [refused, setRefused] = useState<{
+    action: BulkBookingAction;
+    failures: BulkFailure[];
+  } | null>(null);
+  const [refusedOpen, setRefusedOpen] = useState(false);
+  const [session, setSession] = useState(0);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+
+  // The selection belongs to what is on screen: a new search or filter starts it again, a new
+  // page does not. Adjusting state while rendering is the way React offers for "reset on change".
+  const criteria = JSON.stringify([params.q, ...FILTER_KEYS.map((key) => params.filters[key])]);
+  const [shownCriteria, setShownCriteria] = useState(criteria);
+  if (shownCriteria !== criteria) {
+    setShownCriteria(criteria);
+    setSelected([]);
+  }
+
   const filtered = params.q !== '' || FILTER_KEYS.some((key) => params.filters[key] !== '');
   const rangeOf = (booking: Booking) =>
     zones.ready ? bookingRange(booking, zones.zoneOf(booking.locationId)) : '…';
   const subjectOf = (booking: Booking) => `${roomText(booking.roomName)}, ${rangeOf(booking)}`;
+
+  const select = (state: Record<string, boolean>) => {
+    setSelected(
+      Object.keys(state)
+        .filter((id) => state[id])
+        .flatMap((id) => {
+          // The row on screen is the newest copy; the page it came from may be gone.
+          const booking =
+            bookings.data?.items.find((item) => item.id === id) ??
+            selected.find((item) => item.id === id);
+          return booking ? [booking] : [];
+        }),
+    );
+  };
+
+  const clearSelection = () => {
+    setSelected([]);
+    // The button the user pressed is gone, so focus moves to the title.
+    titleRef.current?.focus();
+  };
+
+  const run = (action: BulkBookingAction) => {
+    const asked = selected;
+    // These callbacks belong to this component: if it unmounts first (the user navigates away),
+    // they do not run. Nothing here needs them then; the cache is refreshed by the mutation itself.
+    bulk.mutate(
+      { ids: asked.map((booking) => booking.id), action },
+      {
+        onSuccess: ({ updated, failed }) => {
+          setCancelAsk((ask) => ({ ...ask, open: false }));
+          if (updated.length > 0) {
+            toast.success(`${bookingCount(updated.length)} ${BULK_DONE[action]}`);
+          }
+          // Changed bookings leave the selection, and so do those that no longer exist; the rest
+          // stay for a look or a retry.
+          const leaves = new Set([
+            ...updated,
+            ...failed.filter((item) => item.reason === NOT_FOUND_REASON).map((item) => item.id),
+          ]);
+          setSelected((current) => current.filter((booking) => !leaves.has(booking.id)));
+          if (failed.length > 0) {
+            setRefused({
+              action,
+              failures: failed.map((item) => {
+                const booking = asked.find((candidate) => candidate.id === item.id);
+                return {
+                  id: item.id,
+                  subject: booking ? subjectOf(booking) : item.id,
+                  reason: item.reason,
+                  gone: item.reason === NOT_FOUND_REASON,
+                };
+              }),
+            });
+            setSession((current) => current + 1);
+            setRefusedOpen(true);
+          } else if (action === 'confirm') {
+            // No dialog is closing here, and the buttons that had focus are about to go.
+            titleRef.current?.focus();
+          }
+        },
+        onError: (error) => {
+          setCancelAsk((ask) => ({ ...ask, open: false }));
+          toast.error(error.message);
+        },
+      },
+    );
+  };
 
   const columns = column.columns([
     column.display({
@@ -129,6 +233,7 @@ export function BookingsList() {
       <PageHeader
         title="Bookings"
         subtitle="Who uses which room, and when"
+        titleRef={titleRef}
         actions={
           <Button
             onClick={() => {
@@ -220,6 +325,18 @@ export function BookingsList() {
         )}
       </div>
 
+      <BulkActionsBar
+        count={selected.length}
+        running={bulk.isPending ? bulk.variables.action : null}
+        onConfirm={() => {
+          run('confirm');
+        }}
+        onCancel={() => {
+          setCancelAsk((ask) => ({ open: true, count: selected.length, session: ask.session + 1 }));
+        }}
+        onClear={clearSelection}
+      />
+
       <DataTable
         caption="Bookings"
         columns={columns}
@@ -233,7 +350,43 @@ export function BookingsList() {
         error={bookings.error}
         onRetry={() => void bookings.refetch()}
         empty={filtered ? 'No bookings match the current filters.' : 'No bookings yet.'}
+        selection={{
+          state: Object.fromEntries(selected.map((booking) => [booking.id, true])),
+          onChange: select,
+          locked: bulk.isPending,
+        }}
+        rowLabel={subjectOf}
       />
+
+      <ConfirmDialog
+        key={cancelAsk.session}
+        open={cancelAsk.open}
+        onOpenChange={(open) => {
+          setCancelAsk((ask) => ({ ...ask, open }));
+        }}
+        title={`Cancel ${bookingCount(cancelAsk.count)}?`}
+        description="The rooms are free for other bookings again. This cannot be undone."
+        confirmLabel="Cancel bookings"
+        destructive
+        pending={bulk.isPending}
+        onConfirm={() => {
+          run('cancel');
+        }}
+        // The Cancel button of the bar is gone once everything was cancelled; and a list of
+        // refused bookings that opens at the same time keeps the focus it was given.
+        finalFocus={() => (refusedOpen ? false : selected.length === 0 ? titleRef.current : true)}
+      />
+
+      {refused && (
+        <BulkFailedDialog
+          key={session}
+          open={refusedOpen}
+          onOpenChange={setRefusedOpen}
+          action={refused.action}
+          failures={refused.failures}
+          finalFocus={titleRef}
+        />
+      )}
 
       <BookingFormDialog
         open={formOpen}

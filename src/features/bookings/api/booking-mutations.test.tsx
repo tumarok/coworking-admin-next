@@ -9,7 +9,12 @@ import { seededBookings } from '@/test/mock-bookings';
 import { server } from '@/test/msw-server';
 import { renderHookWithProviders } from '@/test/render-with-providers';
 import { bookingKeys } from './booking-keys';
-import { useChangeBookingStatus, useCreateBooking, useUpdateBooking } from './booking-mutations';
+import {
+  useBulkBookings,
+  useChangeBookingStatus,
+  useCreateBooking,
+  useUpdateBooking,
+} from './booking-mutations';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -153,6 +158,65 @@ describe('useChangeBookingStatus', () => {
 
     await expect(result.current.mutateAsync('confirmed')).rejects.toMatchObject({ status: 500 });
 
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe('useBulkBookings', () => {
+  it('reports what changed and what was refused, and refreshes lists, pages and the dashboard', async () => {
+    const api = installMockApi({ via: 'bff' });
+    const { pending, confirmed } = seededBookings(api);
+    const { result, queryClient } = renderHookWithProviders(() => useBulkBookings());
+    const spy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const outcome = await result.current.mutateAsync({
+      ids: [pending.id, confirmed.id],
+      action: 'confirm',
+    });
+
+    expect(outcome).toEqual({
+      updated: [pending.id],
+      failed: [{ id: confirmed.id, reason: 'Cannot confirm a booking that is confirmed' }],
+    });
+    expect(api.db.bookings.find((b) => b.id === pending.id)?.status).toBe('confirmed');
+    // Not the whole root: the lists, the page of every named booking, and the dashboard.
+    expect(invalidatedRoots(spy)).toEqual([
+      bookingKeys.lists(),
+      bookingKeys.detail(pending.id),
+      bookingKeys.detail(confirmed.id),
+      [QUERY_ROOTS.dashboard],
+    ]);
+  });
+
+  it('refreshes the lists and the pages of refused bookings, but not the dashboard', async () => {
+    const api = installMockApi({ via: 'bff' });
+    const { cancelled } = seededBookings(api);
+    const { result, queryClient } = renderHookWithProviders(() => useBulkBookings());
+    const spy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const outcome = await result.current.mutateAsync({ ids: [cancelled.id], action: 'confirm' });
+
+    expect(outcome.updated).toEqual([]);
+    expect(outcome.failed).toEqual([
+      { id: cancelled.id, reason: 'Cannot confirm a booking that is cancelled' },
+    ]);
+    // A refusal says the screen was out of date; nothing changed, so the counts did not move.
+    expect(invalidatedRoots(spy)).toEqual([bookingKeys.lists(), bookingKeys.detail(cancelled.id)]);
+  });
+
+  it('keeps a failed request for the screen to explain, and refreshes nothing', async () => {
+    installMockApi({ via: 'bff' });
+    server.use(
+      http.post('*/bff/bookings/bulk', () =>
+        HttpResponse.json({ message: 'The server failed' }, { status: 500 }),
+      ),
+    );
+    const { result, queryClient } = renderHookWithProviders(() => useBulkBookings());
+    const spy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    await expect(
+      result.current.mutateAsync({ ids: ['bk_1'], action: 'cancel' }),
+    ).rejects.toMatchObject({ status: 500, message: 'The server failed' });
     expect(spy).not.toHaveBeenCalled();
   });
 });

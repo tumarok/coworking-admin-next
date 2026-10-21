@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { LoginResponse } from '../../src/lib/contract/auth.ts';
-import type { Booking } from '../../src/lib/contract/booking.ts';
+import { type Booking, MAX_BULK_BOOKINGS } from '../../src/lib/contract/booking.ts';
 import type { Page } from '../../src/lib/contract/common.ts';
 import { dashboardSchema } from '../../src/lib/contract/dashboard.ts';
 import { type Member, type MemberInput, memberPageSchema } from '../../src/lib/contract/member.ts';
@@ -272,6 +272,70 @@ describe('mock API', () => {
     expect(res.body).toEqual({
       updated: [pending.id],
       failed: [{ id: completed.id, reason: 'Cannot confirm a booking that is completed' }],
+    });
+  });
+
+  describe('bulk bookings', () => {
+    const idsWith = (status: string, count: number) =>
+      (call('GET', '/bookings', undefined, { status, limit: '50' }).body as Page<Booking>).items
+        .slice(0, count)
+        .map((booking) => booking.id);
+
+    it('cancels what can be cancelled and moves it to cancelled', () => {
+      const [pending, confirmed] = [idsWith('pending', 1)[0], idsWith('confirmed', 1)[0]];
+      if (!pending || !confirmed) throw new Error('seed lacks pending or confirmed bookings');
+
+      const res = call('POST', '/bookings/bulk', { ids: [pending, confirmed], action: 'cancel' });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ updated: [pending, confirmed], failed: [] });
+      for (const id of [pending, confirmed]) {
+        expect((call('GET', `/bookings/${id}`).body as Booking).status).toBe('cancelled');
+      }
+    });
+
+    it('answers "Booking not found" for an id it does not have, in the order asked', () => {
+      const pending = idsWith('pending', 1)[0];
+      if (!pending) throw new Error('seed lacks a pending booking');
+
+      const res = call('POST', '/bookings/bulk', {
+        ids: ['bk_missing', pending],
+        action: 'confirm',
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({
+        updated: [pending],
+        failed: [{ id: 'bk_missing', reason: 'Booking not found' }],
+      });
+    });
+
+    it('does not merge a repeated id: the second time it is refused', () => {
+      const pending = idsWith('pending', 1)[0];
+      if (!pending) throw new Error('seed lacks a pending booking');
+
+      const res = call('POST', '/bookings/bulk', { ids: [pending, pending], action: 'confirm' });
+
+      expect(res.body).toEqual({
+        updated: [pending],
+        failed: [{ id: pending, reason: 'Cannot confirm a booking that is confirmed' }],
+      });
+    });
+
+    it('refuses an empty list of ids with a 422 on `ids`', () => {
+      const res = call('POST', '/bookings/bulk', { ids: [], action: 'confirm' });
+
+      expect(res.status).toBe(422);
+      expect(Object.keys((res.body as { fieldErrors: object }).fieldErrors)).toEqual(['ids']);
+    });
+
+    it('refuses more than the most one request takes with a 422 on `ids`', () => {
+      const ids = Array.from({ length: MAX_BULK_BOOKINGS + 1 }, (_, i) => `bk_${i}`);
+
+      const res = call('POST', '/bookings/bulk', { ids, action: 'cancel' });
+
+      expect(res.status).toBe(422);
+      expect(Object.keys((res.body as { fieldErrors: object }).fieldErrors)).toEqual(['ids']);
     });
   });
 

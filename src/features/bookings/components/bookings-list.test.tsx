@@ -3,6 +3,7 @@ import { delay, http, HttpResponse } from 'msw';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { formatMoney } from '@/lib/money';
+import { DEFAULT_PAGE_SIZE } from '@/lib/contract/common';
 import { humanize } from '@/lib/humanize';
 import { fillNewBooking } from '@/test/booking-form';
 import { useFakeDebounce } from '@/test/debounce';
@@ -11,6 +12,7 @@ import { rangeOf, seededBookings } from '@/test/mock-bookings';
 import { rangeText } from '@/test/mock-members';
 import { server } from '@/test/msw-server';
 import { renderWithProviders } from '@/test/render-with-providers';
+import { bookingKeys } from '@/features/bookings/api/booking-keys';
 import { BookingsList } from './bookings-list';
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -408,5 +410,444 @@ describe('BookingsList: creating and editing', () => {
       ).not.toBeInTheDocument();
     });
     expect(screen.getByRole('button', { name: `Check in: ${subject(pending)}` })).toBeVisible();
+  });
+});
+
+describe('BookingsList: bulk actions', () => {
+  /** The checkbox of a booking's row, named by room and time like its other buttons. */
+  const pick = (booking: typeof seeded.first) =>
+    screen.findByRole('checkbox', { name: `Select ${subject(booking)}` });
+
+  const bar = () => screen.queryByRole('toolbar', { name: 'Bulk actions' });
+  const status = () => screen.getByRole('status');
+  const confirmSelected = () => screen.getByRole('button', { name: 'Confirm selected bookings' });
+  const cancelSelected = () => screen.getByRole('button', { name: 'Cancel selected bookings' });
+  const heading = () => screen.getByRole('heading', { name: 'Bookings' });
+
+  /** Holds the answer of the bulk request until the test lets it go. */
+  const holdBulk = () => {
+    const gate = Promise.withResolvers<undefined>();
+    server.use(
+      http.post('*/bff/bookings/bulk', async () => {
+        await gate.promise;
+        return undefined;
+      }),
+    );
+    return gate;
+  };
+
+  it('shows the bar only while something is selected', async () => {
+    const { user } = renderWithProviders(<BookingsList />);
+    await loaded();
+    expect(bar()).not.toBeInTheDocument();
+    expect(status()).toBeEmptyDOMElement();
+
+    await user.click(await pick(seeded.pending));
+
+    expect(bar()).toBeInTheDocument();
+    expect(status()).toHaveTextContent('1 selected');
+    await user.click(await pick(seeded.pending));
+    expect(bar()).not.toBeInTheDocument();
+    expect(status()).toBeEmptyDOMElement();
+  });
+
+  it('selects the whole page from the header and clears it from the bar', async () => {
+    const { user } = renderWithProviders(<BookingsList />);
+    await loaded();
+
+    await user.click(screen.getByRole('checkbox', { name: 'Select all rows on this page' }));
+
+    expect(status()).toHaveTextContent(`${seeded.page.length} selected`);
+    await user.click(screen.getByRole('button', { name: 'Clear selection' }));
+    expect(bar()).not.toBeInTheDocument();
+    // The button that was pressed is gone, so the title takes the focus.
+    expect(heading()).toHaveFocus();
+  });
+
+  it('keeps the selection when the page changes', async () => {
+    const { user } = renderWithProviders(<BookingsList />);
+    await loaded();
+    await user.click(await pick(seeded.first));
+
+    await user.click(screen.getByRole('button', { name: 'Next page' }));
+    await screen.findByText(rangeText(total(), DEFAULT_PAGE_SIZE, 2));
+    // Any row of the second page: its name is not needed, only that it is not on the first.
+    const [onSecondPage] = await screen.findAllByRole('checkbox', { name: /^Select (?!all rows)/ });
+    await user.click(onSecondPage as HTMLElement);
+
+    expect(status()).toHaveTextContent('2 selected');
+    await user.click(screen.getByRole('button', { name: 'Previous page' }));
+    await screen.findByText(footer(total()));
+    expect(await pick(seeded.first)).toBeChecked();
+    expect(await pick(seeded.pending)).not.toBeChecked();
+  });
+
+  it('starts the selection again when a filter changes', async () => {
+    const { user } = renderWithProviders(<BookingsList />);
+    await loaded();
+    await user.click(await pick(seeded.pending));
+    expect(status()).toHaveTextContent('1 selected');
+
+    fireEvent.change(screen.getByLabelText('From date'), { target: { value: '2020-01-01' } });
+
+    await waitFor(() => {
+      expect(bar()).not.toBeInTheDocument();
+    });
+    expect(status()).toBeEmptyDOMElement();
+  });
+
+  it('starts the selection again when the search changes', async () => {
+    const { user, pause } = useFakeDebounce();
+    renderWithProviders(<BookingsList />);
+    await loaded();
+    await user.click(await pick(seeded.pending));
+
+    await user.type(screen.getByRole('searchbox', { name: 'Search member or room' }), 'a');
+    pause();
+
+    await waitFor(() => {
+      expect(bar()).not.toBeInTheDocument();
+    });
+  });
+
+  it('confirms the selected bookings, says so and clears the selection', async () => {
+    const { pending } = seeded;
+    const { user } = renderWithProviders(<BookingsList />);
+    await loaded();
+    await user.click(await pick(pending));
+
+    await user.click(confirmSelected());
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith('1 booking confirmed');
+    });
+    expect(api.db.bookings.find((b) => b.id === pending.id)?.status).toBe('confirmed');
+    expect(bar()).not.toBeInTheDocument();
+    expect(await pick(pending)).not.toBeChecked();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    // The buttons that had focus are gone, so the title has it.
+    expect(heading()).toHaveFocus();
+    // The list shows the change: the row now offers the next move.
+    expect(
+      await screen.findByRole('button', { name: `Check in: ${subject(pending)}` }),
+    ).toBeVisible();
+  });
+
+  it('names the bookings it could not change and keeps only those selected', async () => {
+    const { pending, confirmed } = seeded;
+    const { user } = renderWithProviders(<BookingsList />);
+    await loaded();
+    await user.click(await pick(pending));
+    await user.click(await pick(confirmed));
+
+    await user.click(confirmSelected());
+
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Some bookings were not confirmed',
+    });
+    expect(toast.success).toHaveBeenCalledWith('1 booking confirmed');
+    const link = within(dialog).getByRole('link', { name: new RegExp(subject(confirmed)) });
+    expect(link).toHaveAttribute('href', `/bookings/${confirmed.id}`);
+    expect(within(dialog).getByText('Cannot confirm a booking that is confirmed')).toBeVisible();
+    expect(within(dialog).getAllByRole('listitem')).toHaveLength(1);
+    expect(
+      within(dialog).getByText('They are still selected, so you can look at them or try again.'),
+    ).toBeVisible();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Close' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+    // Behind the dialog the page is hidden from the tree, so the selection is read after it.
+    expect(status()).toHaveTextContent('1 selected');
+    expect(await pick(confirmed)).toBeChecked();
+    expect(await pick(pending)).not.toBeChecked();
+    // The selection is still there, and the focus is back on the page rather than lost.
+    expect(heading()).toHaveFocus();
+  });
+
+  it('shows what a refusal means for a row that was out of date', async () => {
+    const { pending } = seeded;
+    const { user } = renderWithProviders(<BookingsList />);
+    await loaded();
+    await user.click(await pick(pending));
+    // Somebody else confirmed it after this list was loaded.
+    const record = api.db.bookings.find((b) => b.id === pending.id);
+    if (!record) throw new Error('the seeded booking is gone');
+    record.status = 'confirmed';
+
+    await user.click(confirmSelected());
+
+    const dialog = await screen.findByRole('dialog', { name: 'Some bookings were not confirmed' });
+    expect(within(dialog).getByText('Cannot confirm a booking that is confirmed')).toBeVisible();
+    await user.click(within(dialog).getByRole('button', { name: 'Close' }));
+    // The lists were fetched again: the row now says what it really is.
+    expect(
+      await screen.findByRole('button', { name: `Check in: ${subject(pending)}` }),
+    ).toBeVisible();
+  });
+
+  it('takes a booking that no longer exists off the selection and says so', async () => {
+    const { pending } = seeded;
+    server.use(
+      http.post('*/bff/bookings/bulk', () =>
+        HttpResponse.json({
+          updated: [],
+          failed: [{ id: pending.id, reason: 'Booking not found' }],
+        }),
+      ),
+    );
+    const { user } = renderWithProviders(<BookingsList />);
+    await loaded();
+    await user.click(await pick(pending));
+
+    await user.click(confirmSelected());
+
+    const dialog = await screen.findByRole('dialog', { name: /not confirmed/ });
+    expect(within(dialog).getByText('Booking not found')).toBeVisible();
+    expect(
+      within(dialog).getByText('They no longer exist, so they were taken off the selection.'),
+    ).toBeVisible();
+    expect(toast.success).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole('button', { name: 'Close' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+    expect(bar()).not.toBeInTheDocument();
+    expect(heading()).toHaveFocus();
+  });
+
+  it('names a refused booking by its id when the list does not know it', async () => {
+    server.use(
+      http.post('*/bff/bookings/bulk', () =>
+        HttpResponse.json({
+          updated: [],
+          failed: [{ id: 'bk_unlisted', reason: 'Cannot confirm a booking that is completed' }],
+        }),
+      ),
+    );
+    const { user } = renderWithProviders(<BookingsList />);
+    await loaded();
+    await user.click(await pick(seeded.pending));
+
+    await user.click(confirmSelected());
+
+    const dialog = await screen.findByRole('dialog', { name: /not confirmed/ });
+    expect(within(dialog).getByRole('link', { name: /^bk_unlisted/ })).toBeVisible();
+    await user.click(within(dialog).getByRole('button', { name: 'Close' }));
+    // Nothing was changed and the real booking was not mentioned, so it stays selected.
+    expect(await screen.findByText('1 selected')).toBeInTheDocument();
+  });
+
+  it('shows the freshest copy of a selected row when it names a refusal', async () => {
+    const { pending, confirmed } = seeded;
+    const { user, queryClient } = renderWithProviders(<BookingsList />);
+    await loaded();
+    await user.click(await pick(confirmed));
+    const pendingBox = await pick(pending);
+    // The room of the first booking is renamed after the row was selected, and the list reloads.
+    const room = api.db.rooms.find((r) => r.id === confirmed.roomId);
+    if (!room) throw new Error('the seeded booking has no room');
+    room.name = 'Renamed Room';
+    await queryClient.invalidateQueries({ queryKey: bookingKeys.lists() });
+    await screen.findAllByText('Renamed Room');
+
+    // Selecting another row rebuilds the selection from the rows on screen.
+    await user.click(pendingBox);
+    await user.click(confirmSelected());
+
+    const dialog = await screen.findByRole('dialog', { name: /not confirmed/ });
+    expect(within(dialog).getByRole('link', { name: /^Renamed Room, / })).toBeVisible();
+  });
+
+  it('asks before cancelling, and cancels the selected bookings once confirmed', async () => {
+    const { pending, confirmed } = seeded;
+    const { user } = renderWithProviders(<BookingsList />);
+    await loaded();
+    await user.click(await pick(pending));
+    await user.click(await pick(confirmed));
+
+    await user.click(cancelSelected());
+    const ask = await screen.findByRole('alertdialog', { name: 'Cancel 2 bookings?' });
+    expect(api.db.bookings.find((b) => b.id === pending.id)?.status).toBe('pending');
+    await user.click(within(ask).getByRole('button', { name: 'Cancel bookings' }));
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith('2 bookings cancelled');
+    });
+    expect(api.db.bookings.find((b) => b.id === pending.id)?.status).toBe('cancelled');
+    expect(api.db.bookings.find((b) => b.id === confirmed.id)?.status).toBe('cancelled');
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    });
+    expect(bar()).not.toBeInTheDocument();
+    // The Cancel button is gone with the bar; focus lands on the title once the question closed.
+    await waitFor(() => {
+      expect(heading()).toHaveFocus();
+    });
+  });
+
+  it('keeps the title of the question while it closes', async () => {
+    const { user } = renderWithProviders(<BookingsList />);
+    await loaded();
+    await user.click(await pick(seeded.pending));
+    await user.click(cancelSelected());
+    const ask = await screen.findByRole('alertdialog', { name: 'Cancel 1 booking?' });
+
+    await user.click(within(ask).getByRole('button', { name: 'Cancel bookings' }));
+
+    // The selection is empty by now, yet the question still reads "1 booking" until it is gone.
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith('1 booking cancelled');
+    });
+    expect(
+      screen.queryByRole('alertdialog', { name: 'Cancel 0 bookings?' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('cancels nothing when the question is dismissed, and keeps the selection', async () => {
+    const { pending } = seeded;
+    const { user } = renderWithProviders(<BookingsList />);
+    await loaded();
+    await user.click(await pick(pending));
+
+    await user.click(cancelSelected());
+    const ask = await screen.findByRole('alertdialog', { name: 'Cancel 1 booking?' });
+    await user.click(within(ask).getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    });
+    expect(api.db.bookings.find((b) => b.id === pending.id)?.status).toBe('pending');
+    expect(status()).toHaveTextContent('1 selected');
+    // The button that asked is still there, so focus goes back to it.
+    await waitFor(() => {
+      expect(cancelSelected()).toHaveFocus();
+    });
+  });
+
+  it('asks a fresh question each time', async () => {
+    const { user } = renderWithProviders(<BookingsList />);
+    await loaded();
+    await user.click(await pick(seeded.pending));
+    await user.click(cancelSelected());
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Cancel' }),
+    );
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    });
+    await user.click(await pick(seeded.confirmed));
+
+    await user.click(cancelSelected());
+
+    expect(await screen.findByRole('alertdialog', { name: 'Cancel 2 bookings?' })).toBeVisible();
+  });
+
+  it('says so when the request fails, and keeps the selection to try again', async () => {
+    server.use(
+      http.post('*/bff/bookings/bulk', () =>
+        HttpResponse.json({ message: 'The server failed' }, { status: 500 }),
+      ),
+    );
+    const { user } = renderWithProviders(<BookingsList />);
+    await loaded();
+    await user.click(await pick(seeded.pending));
+
+    await user.click(cancelSelected());
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Cancel bookings',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('The server failed');
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    });
+    expect(status()).toHaveTextContent('1 selected');
+    expect(confirmSelected()).toBeEnabled();
+  });
+
+  it('goes to the login page when the session has ended', async () => {
+    const assign = vi.fn();
+    vi.stubGlobal('location', { pathname: '/bookings', search: '', assign });
+    try {
+      server.use(
+        http.post('*/bff/bookings/bulk', () =>
+          HttpResponse.json({ message: 'Authentication required' }, { status: 401 }),
+        ),
+      );
+      const { user } = renderWithProviders(<BookingsList />);
+      await loaded();
+      await user.click(await pick(seeded.pending));
+
+      await user.click(confirmSelected());
+
+      await waitFor(() => {
+        expect(assign).toHaveBeenCalledWith('/login?from=%2Fbookings');
+      });
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  describe('while the request runs', () => {
+    it('locks the bar and the checkboxes', async () => {
+      const gate = holdBulk();
+      try {
+        const { user } = renderWithProviders(<BookingsList />);
+        await loaded();
+        await user.click(await pick(seeded.pending));
+        const other = await pick(seeded.first);
+
+        await user.click(confirmSelected());
+
+        await waitFor(() => {
+          expect(confirmSelected()).toBeDisabled();
+        });
+        expect(cancelSelected()).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'Clear selection' })).toBeDisabled();
+        expect(other).toHaveAttribute('aria-disabled', 'true');
+        expect(
+          screen.getByRole('checkbox', { name: 'Select all rows on this page' }),
+        ).toHaveAttribute('aria-disabled', 'true');
+        await user.click(other);
+        expect(status()).toHaveTextContent('1 selected');
+      } finally {
+        gate.resolve(undefined);
+      }
+      await waitFor(() => {
+        expect(toast.success).toHaveBeenCalledWith('1 booking confirmed');
+      });
+    });
+
+    it('lets a changed filter start the selection again; the answer then changes nothing in it', async () => {
+      const gate = holdBulk();
+      try {
+        const { user } = renderWithProviders(<BookingsList />);
+        await loaded();
+        await user.click(await pick(seeded.pending));
+        await user.click(confirmSelected());
+        await waitFor(() => {
+          expect(confirmSelected()).toBeDisabled();
+        });
+
+        fireEvent.change(screen.getByLabelText('From date'), { target: { value: '2020-01-01' } });
+        await waitFor(() => {
+          expect(bar()).not.toBeInTheDocument();
+        });
+      } finally {
+        gate.resolve(undefined);
+      }
+
+      await waitFor(() => {
+        expect(toast.success).toHaveBeenCalledWith('1 booking confirmed');
+      });
+      expect(bar()).not.toBeInTheDocument();
+    });
   });
 });

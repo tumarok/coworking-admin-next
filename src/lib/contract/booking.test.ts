@@ -6,6 +6,7 @@ import {
   bookingPageSchema,
   bookingSchema,
   bulkBookingRequestSchema,
+  MAX_BULK_BOOKINGS,
   canTransition,
 } from './booking';
 
@@ -77,10 +78,16 @@ describe('bulkBookingRequestSchema', () => {
     expect(bulkBookingRequestSchema.safeParse({ ids: [], action: 'cancel' }).success).toBe(false);
     expect(
       bulkBookingRequestSchema.safeParse({
-        ids: Array.from({ length: 101 }, (_, i) => `bk_${i}`),
+        ids: Array.from({ length: MAX_BULK_BOOKINGS + 1 }, (_, i) => `bk_${i}`),
         action: 'cancel',
       }).success,
     ).toBe(false);
+    expect(
+      bulkBookingRequestSchema.safeParse({
+        ids: Array.from({ length: MAX_BULK_BOOKINGS }, (_, i) => `bk_${i}`),
+        action: 'cancel',
+      }).success,
+    ).toBe(true);
     expect(bulkBookingRequestSchema.safeParse({ ids: ['bk_1'], action: 'delete' }).success).toBe(
       false,
     );

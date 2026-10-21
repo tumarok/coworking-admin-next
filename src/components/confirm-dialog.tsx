@@ -24,6 +24,11 @@ interface ConfirmDialogProps {
   /** Why the last attempt failed; the dialog stays open so the user can read it. */
   error?: string | null;
   onConfirm: () => void;
+  /**
+   * Where focus goes once the dialog has closed, when the button that opened it may be gone
+   * (Base UI's `finalFocus`: an element, `true` for the default, or a function that decides).
+   */
+  finalFocus?: React.ComponentProps<typeof AlertDialogContent>['finalFocus'];
 }
 
 /** Asks before an action that cannot be undone. The caller closes it, so a failed action keeps it open. */
@@ -37,6 +42,7 @@ export function ConfirmDialog({
   pending = false,
   error = null,
   onConfirm,
+  finalFocus,
 }: ConfirmDialogProps) {
   return (
     <AlertDialog
@@ -46,7 +52,7 @@ export function ConfirmDialog({
         if (!pending) onOpenChange(next);
       }}
     >
-      <AlertDialogContent>
+      <AlertDialogContent finalFocus={finalFocus}>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>

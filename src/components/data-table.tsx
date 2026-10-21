@@ -42,6 +42,9 @@ const SKELETON_ROWS = 5;
 // module-level constant: new column definitions on every render would remount the checkboxes.
 const RowLabelContext = createContext<((row: never) => string) | undefined>(undefined);
 
+// Whether the checkboxes are locked (a request on the selection is running). Same reason as above.
+const SelectionLockContext = createContext(false);
+
 function RowCheckbox({
   original,
   checked,
@@ -52,10 +55,33 @@ function RowCheckbox({
   onCheckedChange: (checked: boolean) => void;
 }) {
   const rowLabel = use(RowLabelContext);
+  const locked = use(SelectionLockContext);
   return (
     <Checkbox
       aria-label={rowLabel ? `Select ${rowLabel(original as never)}` : 'Select row'}
       checked={checked}
+      disabled={locked}
+      onCheckedChange={onCheckedChange}
+    />
+  );
+}
+
+function AllRowsCheckbox({
+  checked,
+  indeterminate,
+  onCheckedChange,
+}: {
+  checked: boolean;
+  indeterminate: boolean;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  const locked = use(SelectionLockContext);
+  return (
+    <Checkbox
+      aria-label="Select all rows on this page"
+      checked={checked}
+      indeterminate={indeterminate}
+      disabled={locked}
       onCheckedChange={onCheckedChange}
     />
   );
@@ -64,8 +90,7 @@ function RowCheckbox({
 const selectColumn = dataTableColumns<{ id: string }>().display({
   id: 'select',
   header: ({ table }) => (
-    <Checkbox
-      aria-label="Select all rows on this page"
+    <AllRowsCheckbox
       checked={table.getIsAllPageRowsSelected()}
       indeterminate={table.getIsSomePageRowsSelected() && !table.getIsAllPageRowsSelected()}
       onCheckedChange={(checked) => {
@@ -106,8 +131,15 @@ interface DataTableProps<T extends RowData & { id: string }> {
   onRetry?: () => void;
   /** Shown when the page has no rows. */
   empty?: React.ReactNode;
-  /** Adds a checkbox column. Selected rows are kept by id, so they survive a page change. */
-  selection?: { state: RowSelectionState; onChange: (state: RowSelectionState) => void };
+  /**
+   * Adds a checkbox column. Selected rows are kept by id, so they survive a page change. `locked`
+   * turns the checkboxes off while something is being done with the selection.
+   */
+  selection?: {
+    state: RowSelectionState;
+    onChange: (state: RowSelectionState) => void;
+    locked?: boolean;
+  };
   /** Names a row for its checkbox ("Select Atrium"), so a screen reader can tell rows apart. */
   rowLabel?: (row: T) => string;
 }
@@ -169,81 +201,86 @@ export function DataTable<T extends RowData & { id: string }>({
 
   return (
     <RowLabelContext value={rowLabel}>
-      <div className="overflow-hidden rounded-xl border bg-card">
-        <Table aria-busy={loading || fetching}>
-          <TableCaption className="sr-only">{caption}</TableCaption>
-          <TableHeader>
-            {table.getHeaderGroups().map((group) => (
-              <TableRow key={group.id}>
-                {group.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className="h-10 bg-muted/50 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-                  >
-                    {header.isPlaceholder ? null : <table.FlexRender header={header} />}
-                  </TableHead>
+      <SelectionLockContext value={selection?.locked ?? false}>
+        <div className="overflow-hidden rounded-xl border bg-card">
+          <Table aria-busy={loading || fetching}>
+            <TableCaption className="sr-only">{caption}</TableCaption>
+            <TableHeader>
+              {table.getHeaderGroups().map((group) => (
+                <TableRow key={group.id}>
+                  {group.headers.map((header) => (
+                    <TableHead
+                      key={header.id}
+                      className="h-10 bg-muted/50 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+                    >
+                      {header.isPlaceholder ? null : <table.FlexRender header={header} />}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody className={cn(fetching && 'opacity-60 transition-opacity')}>
+              {loading &&
+                Array.from({ length: SKELETON_ROWS }, (_, index) => (
+                  <TableRow key={index}>
+                    {Array.from({ length: columnCount }, (_, cell) => (
+                      <TableCell key={cell}>
+                        <Skeleton className="h-4 w-full max-w-40" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
                 ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody className={cn(fetching && 'opacity-60 transition-opacity')}>
-            {loading &&
-              Array.from({ length: SKELETON_ROWS }, (_, index) => (
-                <TableRow key={index}>
-                  {Array.from({ length: columnCount }, (_, cell) => (
-                    <TableCell key={cell}>
-                      <Skeleton className="h-4 w-full max-w-40" />
-                    </TableCell>
-                  ))}
+              {failed && (
+                <TableRow>
+                  <TableCell colSpan={columnCount} className="h-24 text-center whitespace-normal">
+                    <div role="alert" className="flex flex-col items-center gap-2">
+                      <p className="text-sm text-destructive">{error.message}</p>
+                      {onRetry && (
+                        <Button variant="outline" size="sm" onClick={onRetry}>
+                          Retry
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
                 </TableRow>
-              ))}
-            {failed && (
-              <TableRow>
-                <TableCell colSpan={columnCount} className="h-24 text-center whitespace-normal">
-                  <div role="alert" className="flex flex-col items-center gap-2">
-                    <p className="text-sm text-destructive">{error.message}</p>
-                    {onRetry && (
-                      <Button variant="outline" size="sm" onClick={onRetry}>
-                        Retry
-                      </Button>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            )}
-            {!loading && !failed && table.getRowModel().rows.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={columnCount} className="h-24 text-center text-muted-foreground">
-                  {empty}
-                </TableCell>
-              </TableRow>
-            )}
-            {!loading &&
-              !failed &&
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} data-state={row.getIsSelected() ? 'selected' : undefined}>
-                  {row.getAllCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      <table.FlexRender cell={cell} />
-                    </TableCell>
-                  ))}
+              )}
+              {!loading && !failed && table.getRowModel().rows.length === 0 && (
+                <TableRow>
+                  <TableCell
+                    colSpan={columnCount}
+                    className="h-24 text-center text-muted-foreground"
+                  >
+                    {empty}
+                  </TableCell>
                 </TableRow>
-              ))}
-          </TableBody>
-        </Table>
-        <Pagination
-          page={page}
-          pageCount={pageCount}
-          limit={limit}
-          total={total}
-          onPageChange={(next) => {
-            table.setPageIndex(next - 1);
-          }}
-          onLimitChange={(next) => {
-            table.setPageSize(next);
-          }}
-        />
-      </div>
+              )}
+              {!loading &&
+                !failed &&
+                table.getRowModel().rows.map((row) => (
+                  <TableRow key={row.id} data-state={row.getIsSelected() ? 'selected' : undefined}>
+                    {row.getAllCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        <table.FlexRender cell={cell} />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+            </TableBody>
+          </Table>
+          <Pagination
+            page={page}
+            pageCount={pageCount}
+            limit={limit}
+            total={total}
+            onPageChange={(next) => {
+              table.setPageIndex(next - 1);
+            }}
+            onLimitChange={(next) => {
+              table.setPageSize(next);
+            }}
+          />
+        </div>
+      </SelectionLockContext>
     </RowLabelContext>
   );
 }

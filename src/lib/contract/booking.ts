@@ -85,8 +85,11 @@ export const bookingListQuerySchema = pageQuerySchema.extend({
 
 export const BULK_ACTIONS = ['confirm', 'cancel'] as const;
 
+/** Most bookings one bulk request may name. */
+export const MAX_BULK_BOOKINGS = 100;
+
 export const bulkBookingRequestSchema = z.object({
-  ids: z.array(idSchema).min(1).max(100),
+  ids: z.array(idSchema).min(1).max(MAX_BULK_BOOKINGS),
   action: z.enum(BULK_ACTIONS),
 });
 
