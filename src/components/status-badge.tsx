@@ -1,5 +1,6 @@
 import { cva } from 'class-variance-authority';
 import type { BookingStatus } from '@/lib/contract/booking';
+import type { LocationStatus } from '@/lib/contract/location';
 import { humanize } from '@/lib/humanize';
 
 /** Colour family of a badge. The badge always spells the status out, colour is only a hint. */
@@ -36,4 +37,13 @@ const BOOKING_TONES: Record<BookingStatus, StatusTone> = {
 
 export function BookingStatusBadge({ status }: { status: BookingStatus }) {
   return <StatusBadge status={status} tone={BOOKING_TONES[status]} />;
+}
+
+const LOCATION_TONES: Record<LocationStatus, StatusTone> = {
+  active: 'success',
+  inactive: 'neutral',
+};
+
+export function LocationStatusBadge({ status }: { status: LocationStatus }) {
+  return <StatusBadge status={status} tone={LOCATION_TONES[status]} />;
 }

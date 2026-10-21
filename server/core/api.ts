@@ -60,7 +60,7 @@ interface Route {
   handler: (ctx: Ctx) => ApiResponse;
 }
 
-const TOKEN_PREFIX = 'demo-token.';
+export const TOKEN_PREFIX = 'demo-token.';
 
 const paginate = <T>(items: T[], page: number, limit: number) => ({
   items: items.slice((page - 1) * limit, page * limit),

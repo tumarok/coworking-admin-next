@@ -21,6 +21,8 @@ interface ConfirmDialogProps {
   destructive?: boolean;
   /** While the action runs the dialog stays open: buttons are disabled, Escape and outside clicks are ignored. */
   pending?: boolean;
+  /** Why the last attempt failed; the dialog stays open so the user can read it. */
+  error?: string | null;
   onConfirm: () => void;
 }
 
@@ -33,6 +35,7 @@ export function ConfirmDialog({
   confirmLabel,
   destructive = false,
   pending = false,
+  error = null,
   onConfirm,
 }: ConfirmDialogProps) {
   return (
@@ -48,6 +51,14 @@ export function ConfirmDialog({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
+        {error && (
+          <p
+            role="alert"
+            className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          >
+            {error}
+          </p>
+        )}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
           <Button

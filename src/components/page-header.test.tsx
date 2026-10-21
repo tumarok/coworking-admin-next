@@ -26,6 +26,12 @@ describe('PageHeader', () => {
     expect(screen.getByRole('button', { name: 'Add room' })).toBeInTheDocument();
   });
 
+  it('links back to the list when given', () => {
+    render(<PageHeader title="Hub" back={{ href: '/locations', label: 'Locations' }} />);
+
+    expect(screen.getByRole('link', { name: 'Locations' })).toHaveAttribute('href', '/locations');
+  });
+
   it('renders the same output again for the same props', () => {
     const { rerender } = render(<PageHeader title="Rooms" subtitle="12 rooms" />);
 

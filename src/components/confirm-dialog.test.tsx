@@ -122,4 +122,16 @@ describe('ConfirmDialog', () => {
     rerender(<ConfirmDialog open destructive {...props} />);
     expect(screen.getByRole('alertdialog')).toBeInTheDocument();
   });
+
+  it('shows why the last attempt failed', () => {
+    renderDialog({ error: 'Remove the rooms first' });
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Remove the rooms first');
+  });
+
+  it('shows no alert without an error', () => {
+    renderDialog();
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
 });

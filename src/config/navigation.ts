@@ -1,5 +1,5 @@
 import type { Route } from 'next';
-import { LayoutDashboardIcon, type LucideIcon } from 'lucide-react';
+import { LayoutDashboardIcon, MapPinIcon, type LucideIcon } from 'lucide-react';
 import { ROUTES } from '@/config/routes';
 
 export interface NavItem {
@@ -11,4 +11,5 @@ export interface NavItem {
 /** Sidebar entries, in display order. Only routes that exist are listed. */
 export const NAV_ITEMS: readonly NavItem[] = [
   { label: 'Dashboard', href: ROUTES.dashboard, icon: LayoutDashboardIcon },
+  { label: 'Locations', href: ROUTES.locations, icon: MapPinIcon },
 ];

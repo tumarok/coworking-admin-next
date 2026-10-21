@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { loginResponseSchema } from '@/lib/contract/auth';
 import { dashboardSchema } from '@/lib/contract/dashboard';
 import { pageOf } from '@/lib/contract/common';
+import { locationSchema } from '@/lib/contract/location';
 import { roomSchema } from '@/lib/contract/room';
 import { installMockApi } from '@/test/mock-api';
 import { DEMO_PASSWORD } from './core/db.ts';
@@ -52,5 +53,14 @@ describe('MSW adapter', () => {
     expect(reset.status).toBe(204);
     expect(await reset.text()).toBe('');
     expect(invalid.status).toBe(422);
+  });
+
+  it('can answer under the BFF prefix and sign in for the caller', async () => {
+    installMockApi({ via: 'bff' });
+
+    const response = await fetch('http://localhost/bff/locations?limit=2');
+
+    expect(response.status).toBe(200);
+    expect(pageOf(locationSchema).parse(await response.json()).items).toHaveLength(2);
   });
 });

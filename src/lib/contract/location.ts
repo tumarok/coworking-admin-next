@@ -1,6 +1,6 @@
 import * as z from 'zod';
 
-import { idSchema, pageQuerySchema, timeOfDaySchema } from './common.ts';
+import { idSchema, pageOf, pageQuerySchema, timeOfDaySchema } from './common.ts';
 
 export const LOCATION_STATUSES = ['active', 'inactive'] as const;
 export const TIMEZONES = [
@@ -25,6 +25,8 @@ export const locationSchema = z.object({
   status: locationStatusSchema,
   roomCount: z.number().int().min(0),
 });
+
+export const locationPageSchema = pageOf(locationSchema);
 
 export const locationInputSchema = z
   .object({

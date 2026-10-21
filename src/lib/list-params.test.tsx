@@ -26,6 +26,25 @@ describe('useListParams', () => {
     expect(result.current.query).toEqual({ page: 3, limit: 50, q: 'loft', status: 'active' });
   });
 
+  it('treats a filter value outside the allowed ones as no filter', () => {
+    const { result } = renderHookWithProviders(
+      () => useListParams(FILTERS, { status: ['active', 'inactive'] }),
+      { searchParams: '?status=bogus&type=loft' },
+    );
+
+    expect(result.current.filters).toEqual({ status: '', type: 'loft' });
+    expect(result.current.query).toEqual({ page: 1, limit: 20, type: 'loft' });
+  });
+
+  it('keeps an allowed filter value', () => {
+    const { result } = renderHookWithProviders(
+      () => useListParams(FILTERS, { status: ['active', 'inactive'] }),
+      { searchParams: '?status=inactive' },
+    );
+
+    expect(result.current.query).toMatchObject({ status: 'inactive' });
+  });
+
   it.each([['?page=0'], ['?page=-4'], ['?page=abc']])('treats %s as page 1', (search) => {
     expect(render(search).result.current.page).toBe(1);
   });
