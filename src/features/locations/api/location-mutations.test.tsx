@@ -86,6 +86,28 @@ describe('useUpdateLocation', () => {
   });
 });
 
+describe('useUpdateLocation: cached lists', () => {
+  it('puts the saved location into the cached lists at once, before they are refetched', async () => {
+    installMockApi({ via: 'bff' });
+    const { result, queryClient } = renderHookWithProviders(() => useUpdateLocation('loc_1'));
+    const listKey = locationKeys.list({ page: 1, limit: 20 });
+    queryClient.setQueryData(listKey, {
+      items: [
+        { id: 'loc_1', name: 'Old' },
+        { id: 'loc_other', name: 'Untouched' },
+      ],
+      total: 2,
+      page: 1,
+      limit: 20,
+    });
+
+    await result.current.mutateAsync({ ...INPUT, name: 'Renamed Hub' });
+
+    const page = queryClient.getQueryData<{ items: Array<{ id: string; name: string }> }>(listKey);
+    expect(page?.items.map((location) => location.name)).toEqual(['Renamed Hub', 'Untouched']);
+  });
+});
+
 describe('useDeleteLocation', () => {
   it('forgets the detail and refreshes the feature and what shows its locations', async () => {
     const api = installMockApi({ via: 'bff' });

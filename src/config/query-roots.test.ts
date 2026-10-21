@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { locationKeys } from '@/features/locations/api/location-keys';
+import { memberKeys } from '@/features/members/api/member-keys';
 import { roomKeys } from '@/features/rooms/api/room-keys';
 import { isLookupOf, lookupKey, QUERY_ROOTS } from './query-roots';
 
@@ -8,6 +9,7 @@ import { isLookupOf, lookupKey, QUERY_ROOTS } from './query-roots';
 const FACTORIES = {
   locations: locationKeys,
   rooms: roomKeys,
+  members: memberKeys,
 } satisfies Partial<Record<keyof typeof QUERY_ROOTS, { all: readonly unknown[] }>>;
 
 describe('QUERY_ROOTS', () => {

@@ -1,10 +1,12 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll } from 'vitest';
+import { afterAll, afterEach, beforeAll, vi } from 'vitest';
 
 // Testing Library only cleans up on its own when `globals` is enabled; imports are explicit here.
 afterEach(() => {
   cleanup();
+  // A test that faked the clock (see `src/test/debounce.ts`) must not leave it faked for the next.
+  vi.useRealTimers();
 });
 
 // Node's `fetch` rejects a relative URL, a browser resolves it against the page. Client code calls

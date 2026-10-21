@@ -3,6 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Location } from '@/lib/contract/location';
+import { useFakeDebounce } from '@/test/debounce';
 import { installMockApi } from '@/test/mock-api';
 import { server } from '@/test/msw-server';
 import { renderWithProviders } from '@/test/render-with-providers';
@@ -52,7 +53,8 @@ describe('LocationsList', () => {
 
   it('searches after a pause: one request, the text in the URL, only the match left', async () => {
     const queries = watchRequests();
-    const { user, lastUrl } = renderWithProviders(<LocationsList />);
+    const { user, pause } = useFakeDebounce();
+    const { lastUrl } = renderWithProviders(<LocationsList />);
     await screen.findByRole('link', { name: 'Riverside Hub' });
     expect(queries).toHaveLength(1);
 
@@ -60,10 +62,11 @@ describe('LocationsList', () => {
       screen.getByRole('searchbox', { name: 'Search name, city or address' }),
       'lisbon',
     );
+    expect(queries).toHaveLength(1);
+    pause();
 
-    await waitFor(() => {
-      expect(screen.queryByRole('link', { name: 'Riverside Hub' })).not.toBeInTheDocument();
-    });
+    expect(await screen.findByText('1–1 of 1')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Riverside Hub' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Harbour Studio' })).toBeInTheDocument();
     expect(lastUrl()).toBe('?q=lisbon');
     expect(queries).toHaveLength(2);
@@ -97,7 +100,7 @@ describe('LocationsList', () => {
     expect(await screen.findByRole('link', { name: 'Canal Yard' })).toBeInTheDocument();
     expect(screen.getByRole('searchbox')).toHaveValue('berlin');
     expect(screen.getByRole('combobox', { name: 'Status' })).toHaveTextContent('Active');
-    expect(screen.getAllByRole('row')).toHaveLength(2);
+    expect(screen.getByText('1–1 of 1')).toBeInTheDocument();
   });
 
   it('ignores a status in the URL that the API does not know', async () => {

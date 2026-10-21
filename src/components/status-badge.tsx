@@ -1,6 +1,7 @@
 import { cva } from 'class-variance-authority';
 import type { BookingStatus } from '@/lib/contract/booking';
 import type { LocationStatus } from '@/lib/contract/location';
+import type { MemberStatus } from '@/lib/contract/member';
 import type { RoomStatus } from '@/lib/contract/room';
 import { humanize } from '@/lib/humanize';
 
@@ -57,4 +58,14 @@ const ROOM_TONES: Record<RoomStatus, StatusTone> = {
 
 export function RoomStatusBadge({ status }: { status: RoomStatus }) {
   return <StatusBadge status={status} tone={ROOM_TONES[status]} />;
+}
+
+const MEMBER_TONES: Record<MemberStatus, StatusTone> = {
+  active: 'success',
+  suspended: 'warning',
+  cancelled: 'neutral',
+};
+
+export function MemberStatusBadge({ status }: { status: MemberStatus }) {
+  return <StatusBadge status={status} tone={MEMBER_TONES[status]} />;
 }

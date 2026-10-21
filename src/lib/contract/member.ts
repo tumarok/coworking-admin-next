@@ -1,6 +1,6 @@
 import * as z from 'zod';
 
-import { idSchema, isoDateSchema, pageQuerySchema } from './common.ts';
+import { idSchema, isoDateSchema, pageOf, pageQuerySchema } from './common.ts';
 
 export const MEMBER_PLANS = ['day_pass', 'flex', 'dedicated', 'team'] as const;
 export const MEMBER_STATUSES = ['active', 'suspended', 'cancelled'] as const;
@@ -20,15 +20,29 @@ export const memberSchema = z.object({
   joinedAt: isoDateSchema,
 });
 
+export const memberPageSchema = pageOf(memberSchema);
+
 export const memberInputSchema = z.object({
   firstName: z.string().trim().min(1, { error: 'Required' }).max(60),
   lastName: z.string().trim().min(1, { error: 'Required' }).max(60),
-  email: z.email({ error: 'Enter a valid email' }),
+  // The address is stored in lower case and compared that way, so the schema trims and lowers it:
+  // what the API checks for a duplicate is what the form sent.
+  email: z
+    .string({ error: 'Enter a valid email' })
+    .trim()
+    .toLowerCase()
+    .pipe(z.email({ error: 'Enter a valid email' })),
   phone: z
     .string()
     .trim()
     .regex(/^\+?[0-9 ()-]{7,20}$/, { error: 'Enter a valid phone number' }),
-  company: z.string().trim().max(80).nullable(),
+  // No company is `null`; a blank text means the same and is stored as `null`.
+  company: z
+    .string()
+    .trim()
+    .max(80)
+    .nullable()
+    .transform((value) => value || null),
   plan: memberPlanSchema,
   status: memberStatusSchema,
 });

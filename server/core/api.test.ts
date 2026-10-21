@@ -4,6 +4,7 @@ import type { LoginResponse } from '../../src/lib/contract/auth.ts';
 import type { Booking } from '../../src/lib/contract/booking.ts';
 import type { Page } from '../../src/lib/contract/common.ts';
 import { dashboardSchema } from '../../src/lib/contract/dashboard.ts';
+import { type Member, type MemberInput, memberPageSchema } from '../../src/lib/contract/member.ts';
 import { type Room, type RoomInput, roomPageSchema } from '../../src/lib/contract/room.ts';
 
 import { type MockApi, createApi } from './api.ts';
@@ -131,6 +132,107 @@ describe('mock API', () => {
       expect(res.status).toBe(409);
       expect(res.body).toMatchObject({
         message: 'This room has upcoming bookings; cancel them first',
+      });
+    });
+  });
+
+  describe('members', () => {
+    const memberInput: MemberInput = {
+      firstName: 'Dana',
+      lastName: 'Testova',
+      email: 'dana.testova@example.com',
+      phone: '+380 44 000 00 00',
+      company: 'Test Studio',
+      plan: 'team',
+      status: 'active',
+    };
+    const members = (query: Record<string, string> = {}) =>
+      memberPageSchema.parse(call('GET', '/members', undefined, { limit: '100', ...query }).body);
+
+    it('lists members by last and first name and filters by plan, status and search', () => {
+      const all = members().items;
+      const sorted = all.toSorted(
+        (a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName),
+      );
+      expect(all).toEqual(sorted);
+
+      expect(members({ plan: 'team' }).items.every((m) => m.plan === 'team')).toBe(true);
+      expect(members({ status: 'suspended' }).items.every((m) => m.status === 'suspended')).toBe(
+        true,
+      );
+      const first = all[0] as Member;
+      expect(
+        members({ q: `${first.firstName} ${first.lastName}`.toUpperCase() }).items,
+      ).toContainEqual(first);
+      expect(members({ q: first.email.toUpperCase() }).items).toContainEqual(first);
+      expect(call('GET', '/members', undefined, { plan: 'gold' }).status).toBe(422);
+    });
+
+    it('creates a member with today as the join date, a lower-case email and no empty company', () => {
+      const created = call('POST', '/members', {
+        ...memberInput,
+        email: 'Dana.Testova@Example.com',
+        company: '',
+      });
+
+      expect(created.status).toBe(201);
+      expect(created.body).toMatchObject({
+        ...memberInput,
+        email: 'dana.testova@example.com',
+        company: null,
+        joinedAt: '2026-10-14',
+      });
+    });
+
+    it('answers 422 under the email field for an address that is already registered', () => {
+      const taken = (api.db.members[0] as Member).email;
+
+      const res = call('POST', '/members', { ...memberInput, email: taken.toUpperCase() });
+
+      expect(res.status).toBe(422);
+      expect(res.body).toMatchObject({
+        fieldErrors: { email: 'This email is already registered' },
+      });
+    });
+
+    it('lets a member keep their own email on update but not take another one', () => {
+      const [mine, other] = api.db.members as [Member, Member];
+      const input = { ...memberInput, email: mine.email };
+
+      const same = call('PATCH', `/members/${mine.id}`, { ...input, firstName: 'Renamed' });
+      expect(same.status).toBe(200);
+      expect(same.body).toMatchObject({
+        id: mine.id,
+        firstName: 'Renamed',
+        joinedAt: mine.joinedAt,
+      });
+
+      const taken = call('PATCH', `/members/${mine.id}`, { ...input, email: other.email });
+      expect(taken.status).toBe(422);
+      expect(taken.body).toMatchObject({
+        fieldErrors: { email: 'This email is already registered' },
+      });
+      expect(call('PATCH', '/members/mem_nope', memberInput).status).toBe(404);
+    });
+
+    it('deletes a member without upcoming bookings and answers 404 afterwards', () => {
+      const member = call('POST', '/members', memberInput).body as Member;
+
+      expect(call('DELETE', `/members/${member.id}`).status).toBe(204);
+      expect(call('GET', `/members/${member.id}`).status).toBe(404);
+    });
+
+    it('refuses to delete a member with upcoming bookings', () => {
+      const booking = api.db.bookings.find(
+        (b) => Date.parse(b.endsAt) > NOW && ['pending', 'confirmed'].includes(b.status),
+      );
+      if (!booking) throw new Error('seed lacks an upcoming booking');
+
+      const res = call('DELETE', `/members/${booking.memberId}`);
+
+      expect(res.status).toBe(409);
+      expect(res.body).toMatchObject({
+        message: 'This member has upcoming bookings; cancel them first',
       });
     });
   });

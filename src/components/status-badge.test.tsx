@@ -4,6 +4,7 @@ import type { BookingStatus } from '@/lib/contract/booking';
 import {
   BookingStatusBadge,
   LocationStatusBadge,
+  MemberStatusBadge,
   RoomStatusBadge,
   StatusBadge,
 } from './status-badge';
@@ -81,6 +82,18 @@ describe('RoomStatusBadge', () => {
     ['retired', 'Retired', 'text-status-neutral'],
   ] as const)('shows %s as "%s" in %s', (status, label, className) => {
     render(<RoomStatusBadge status={status} />);
+
+    expect(screen.getByText(label)).toHaveClass(className);
+  });
+});
+
+describe('MemberStatusBadge', () => {
+  it.each([
+    ['active', 'Active', 'text-status-success'],
+    ['suspended', 'Suspended', 'text-status-warning'],
+    ['cancelled', 'Cancelled', 'text-status-neutral'],
+  ] as const)('shows %s as "%s" in %s', (status, label, className) => {
+    render(<MemberStatusBadge status={status} />);
 
     expect(screen.getByText(label)).toHaveClass(className);
   });

@@ -5,7 +5,8 @@ import { SearchIcon, XIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-const DEBOUNCE_MS = 300;
+/** How long typing must pause before the text is sent up. */
+export const SEARCH_DEBOUNCE_MS = 300;
 
 interface SearchInputProps {
   /** Search text of the owner (the URL); typing is sent up after a pause. */
@@ -42,7 +43,7 @@ export function SearchInput({ value, onSearch, label }: SearchInputProps) {
     const timer = setTimeout(() => {
       setSent(draft);
       emit(draft);
-    }, DEBOUNCE_MS);
+    }, SEARCH_DEBOUNCE_MS);
     return () => {
       clearTimeout(timer);
     };

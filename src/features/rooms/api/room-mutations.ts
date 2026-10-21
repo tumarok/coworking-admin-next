@@ -2,6 +2,7 @@ import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-q
 import { QUERY_ROOTS } from '@/config/query-roots';
 import { api } from '@/lib/api/client';
 import { roomSchema, type RoomInput } from '@/lib/contract/room';
+import { replaceInLists } from '@/lib/query-cache';
 import { roomKeys } from '@/features/rooms/api/room-keys';
 
 // Locations count their rooms and the dashboard measures occupancy per room: both go stale when
@@ -40,6 +41,7 @@ export const useUpdateRoom = (id: string) => {
     meta: SILENT,
     onSuccess: (room) => {
       queryClient.setQueryData(roomKeys.detail(id), room);
+      replaceInLists(queryClient, { queryKey: roomKeys.lists() }, room);
       void queryClient.invalidateQueries({ queryKey: roomKeys.all });
       invalidateCounts(queryClient);
       invalidateBookings(queryClient);

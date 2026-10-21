@@ -90,6 +90,26 @@ describe('useUpdateRoom', () => {
   });
 });
 
+describe('useUpdateRoom: cached lists', () => {
+  it('puts the saved room into the cached lists at once, before they are refetched', async () => {
+    installMockApi({ via: 'bff' });
+    const { result, queryClient } = renderHookWithProviders(() => useUpdateRoom('room_6'));
+    const other = { id: 'room_other', name: 'Untouched' };
+    const listKey = roomKeys.list({ page: 1, limit: 20 });
+    queryClient.setQueryData(listKey, {
+      items: [{ id: 'room_6', name: 'Old' }, other],
+      total: 2,
+      page: 1,
+      limit: 20,
+    });
+
+    await result.current.mutateAsync({ ...INPUT, name: 'Renamed' });
+
+    const page = queryClient.getQueryData<{ items: Array<{ id: string; name: string }> }>(listKey);
+    expect(page?.items.map((room) => room.name)).toEqual(['Renamed', 'Untouched']);
+  });
+});
+
 describe('useDeleteRoom', () => {
   it('forgets the detail and refreshes the feature and what shows its rooms', async () => {
     installMockApi({ via: 'bff' });

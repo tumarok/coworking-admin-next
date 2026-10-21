@@ -322,8 +322,9 @@ export const createApi = (options: ApiOptions = {}): MockApi => {
   });
 
   // --- members -----------------------------------------------------------------------------------
+  // The contract schema has already trimmed and lower-cased the address.
   const assertUniqueEmail = (email: string, exceptId?: string) => {
-    if (db.members.some((m) => m.email === email.toLowerCase() && m.id !== exceptId)) {
+    if (db.members.some((m) => m.email === email && m.id !== exceptId)) {
       throw invalid({ email: 'This email is already registered' });
     }
   };
@@ -345,8 +346,6 @@ export const createApi = (options: ApiOptions = {}): MockApi => {
     const member = {
       id: nextId(db, 'mem'),
       ...input,
-      email: input.email.toLowerCase(),
-      company: input.company || null,
       joinedAt: new Date(clock()).toISOString().slice(0, 10),
     };
     db.members.push(member);
@@ -356,10 +355,7 @@ export const createApi = (options: ApiOptions = {}): MockApi => {
     const member = findOr404(db.members, params.id, 'Member');
     const input = parse(memberInputSchema, body);
     assertUniqueEmail(input.email, member.id);
-    Object.assign(member, input, {
-      email: input.email.toLowerCase(),
-      company: input.company || null,
-    });
+    Object.assign(member, input);
     return ok(member);
   });
   route('DELETE', '/members/:id', ({ params }) => {

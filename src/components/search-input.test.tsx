@@ -1,6 +1,7 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import { useFakeDebounce } from '@/test/debounce';
 import { SearchInput } from './search-input';
 
 const LABEL = 'Search rooms';
@@ -14,27 +15,24 @@ describe('SearchInput', () => {
 
   it('sends the text up once, after typing pauses', async () => {
     const onSearch = vi.fn();
-    const user = userEvent.setup();
+    const { user, pause } = useFakeDebounce();
     render(<SearchInput label={LABEL} value="" onSearch={onSearch} />);
 
     await user.type(screen.getByRole('searchbox'), 'kyiv');
     expect(onSearch).not.toHaveBeenCalled();
+    pause();
 
-    await waitFor(() => {
-      expect(onSearch).toHaveBeenCalledWith('kyiv');
-    });
-    expect(onSearch).toHaveBeenCalledTimes(1);
+    expect(onSearch).toHaveBeenCalledExactlyOnceWith('kyiv');
   });
 
   it('keeps what is typed while the owner echoes an older value back', async () => {
     const onSearch = vi.fn();
-    const user = userEvent.setup();
+    const { user, pause } = useFakeDebounce();
     const { rerender } = render(<SearchInput label={LABEL} value="" onSearch={onSearch} />);
 
     await user.type(screen.getByRole('searchbox'), 'ab');
-    await waitFor(() => {
-      expect(onSearch).toHaveBeenCalledWith('ab');
-    });
+    pause();
+    expect(onSearch).toHaveBeenCalledWith('ab');
     await user.type(screen.getByRole('searchbox'), 'c');
     rerender(<SearchInput label={LABEL} value="ab" onSearch={onSearch} />);
 

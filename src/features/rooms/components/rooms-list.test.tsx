@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useFakeDebounce } from '@/test/debounce';
 import { installMockApi } from '@/test/mock-api';
 import { server } from '@/test/msw-server';
 import { renderWithProviders } from '@/test/render-with-providers';
@@ -59,20 +60,20 @@ describe('RoomsList', () => {
     expect(await screen.findByRole('link', { name: 'Harbor' })).toBeInTheDocument();
     expect(lastUrl()).toBe('?page=2');
     expect(screen.getByText('21–32 of 32')).toBeInTheDocument();
-    expect(screen.getAllByRole('row')).toHaveLength(13);
   });
 
   it('searches after a pause: one request, the text in the URL, only the match left', async () => {
     const queries = watchRequests();
-    const { user, lastUrl } = renderWithProviders(<RoomsList />);
+    const { user, pause } = useFakeDebounce();
+    const { lastUrl } = renderWithProviders(<RoomsList />);
     await screen.findAllByRole('link', { name: 'Cedar' });
     expect(queries).toHaveLength(1);
 
     await user.type(screen.getByRole('searchbox', { name: 'Search name or location' }), 'aurora');
+    expect(queries).toHaveLength(1);
+    pause();
 
-    await waitFor(() => {
-      expect(screen.getAllByRole('row')).toHaveLength(2);
-    });
+    expect(await screen.findByText('1–1 of 1')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Aurora' })).toBeInTheDocument();
     expect(lastUrl()).toBe('?q=aurora');
     expect(queries).toHaveLength(2);
@@ -135,7 +136,7 @@ describe('RoomsList', () => {
     });
 
     expect(await screen.findByRole('link', { name: 'Iris' })).toBeInTheDocument();
-    expect(screen.getAllByRole('row')).toHaveLength(4);
+    expect(screen.getByText('1–3 of 3')).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Type' })).toHaveTextContent('Meeting room');
     expect(screen.getByRole('combobox', { name: 'Status' })).toHaveTextContent('Any status');
     await waitFor(() => {

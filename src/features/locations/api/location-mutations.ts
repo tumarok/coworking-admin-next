@@ -2,6 +2,7 @@ import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-q
 import { isLookupOf, QUERY_ROOTS } from '@/config/query-roots';
 import { api } from '@/lib/api/client';
 import { locationSchema, type LocationInput } from '@/lib/contract/location';
+import { replaceInLists } from '@/lib/query-cache';
 import { locationKeys } from '@/features/locations/api/location-keys';
 
 // Rooms and bookings print the name and city of a location, the dashboard counts per location:
@@ -37,6 +38,7 @@ export const useUpdateLocation = (id: string) => {
     meta: SILENT,
     onSuccess: (location) => {
       queryClient.setQueryData(locationKeys.detail(id), location);
+      replaceInLists(queryClient, { queryKey: locationKeys.lists() }, location);
       void queryClient.invalidateQueries({ queryKey: locationKeys.all });
       invalidateDependents(queryClient);
     },
