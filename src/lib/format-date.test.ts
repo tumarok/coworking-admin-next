@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate } from './format-date';
+import { durationHours, formatDate, formatDateTime, formatTimeRange } from './format-date';
 
 describe('formatDate', () => {
   it('prints a calendar date as day, short month and year', () => {
@@ -42,5 +42,44 @@ describe('formatDate', () => {
 
   it('leaves a month it does not know as it was written', () => {
     expect(formatDate('2026-13-01')).toBe('1 13 2026');
+  });
+});
+
+describe('formatDateTime', () => {
+  it('prints the instant on the clock of the given zone', () => {
+    expect(formatDateTime('2026-10-14T06:00:00.000Z', 'Europe/Kyiv')).toBe('14 Oct 2026, 09:00');
+    expect(formatDateTime('2026-10-14T06:00:00.000Z', 'Europe/Lisbon')).toBe('14 Oct 2026, 07:00');
+  });
+
+  it('moves to the next day when the zone is ahead', () => {
+    expect(formatDateTime('2026-10-14T22:00:00.000Z', 'Europe/Kyiv')).toBe('15 Oct 2026, 01:00');
+  });
+});
+
+describe('formatTimeRange', () => {
+  it('prints one date and both times for a stay within a local day', () => {
+    expect(
+      formatTimeRange('2026-10-14T06:00:00.000Z', '2026-10-14T08:30:00.000Z', 'Europe/Kyiv'),
+    ).toBe('14 Oct 2026, 09:00–11:30');
+  });
+
+  it('prints both dates for a stay across local midnight', () => {
+    expect(
+      formatTimeRange('2026-10-14T17:00:00.000Z', '2026-10-14T23:00:00.000Z', 'Europe/Kyiv'),
+    ).toBe('14 Oct 2026, 20:00 – 15 Oct 2026, 02:00');
+  });
+
+  it('judges the day by the zone, not by UTC', () => {
+    // Same UTC day, but 23:30 and 00:30 are on different days in Kyiv.
+    expect(
+      formatTimeRange('2026-10-14T20:30:00.000Z', '2026-10-14T21:30:00.000Z', 'Europe/Kyiv'),
+    ).toBe('14 Oct 2026, 23:30 – 15 Oct 2026, 00:30');
+  });
+});
+
+describe('durationHours', () => {
+  it('counts hours, with a fraction', () => {
+    expect(durationHours('2026-10-14T09:00:00.000Z', '2026-10-14T10:30:00.000Z')).toBe(1.5);
+    expect(durationHours('2026-10-14T09:00:00.000Z', '2026-10-14T17:00:00.000Z')).toBe(8);
   });
 });

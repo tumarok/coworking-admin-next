@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { QUERY_ROOTS } from '@/config/query-roots';
+import { isLookupOf, QUERY_ROOTS } from '@/config/query-roots';
 import { api } from '@/lib/api/client';
 import { roomSchema, type RoomInput } from '@/lib/contract/room';
 import { replaceInLists } from '@/lib/query-cache';
@@ -57,6 +57,8 @@ export const useDeleteRoom = () => {
     onSuccess: (_result, id) => {
       // The record is gone: dropping it keeps a refetch of the details page from asking for it.
       queryClient.removeQueries({ queryKey: roomKeys.detail(id) });
+      // So are the by-id lookups other features keep (a booking form naming its room).
+      queryClient.removeQueries({ predicate: isLookupOf(QUERY_ROOTS.rooms, id) });
       void queryClient.invalidateQueries({ queryKey: roomKeys.all });
       invalidateCounts(queryClient);
       invalidateBookings(queryClient);

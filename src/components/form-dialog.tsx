@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
+import { cn } from '@/lib/utils';
 
 interface FormDialogProps {
   open: boolean;
@@ -18,6 +19,8 @@ interface FormDialogProps {
   description?: string;
   /** A save is running: Escape and outside clicks are ignored so the dialog cannot be abandoned. */
   pending?: boolean;
+  /** Classes of the dialog box, for a form that needs more width than the default. */
+  className?: string;
   children: React.ReactNode;
 }
 
@@ -31,6 +34,7 @@ export function FormDialog({
   title,
   description,
   pending = false,
+  className,
   children,
 }: FormDialogProps) {
   return (
@@ -40,7 +44,7 @@ export function FormDialog({
         if (!pending) onOpenChange(next);
       }}
     >
-      <DialogContent className="sm:max-w-xl" showCloseButton={!pending}>
+      <DialogContent className={cn('sm:max-w-xl', className)} showCloseButton={!pending}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}

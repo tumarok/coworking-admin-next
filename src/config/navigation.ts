@@ -1,5 +1,6 @@
 import type { Route } from 'next';
 import {
+  CalendarDaysIcon,
   DoorOpenIcon,
   LayoutDashboardIcon,
   MapPinIcon,
@@ -20,4 +21,5 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { label: 'Locations', href: ROUTES.locations, icon: MapPinIcon },
   { label: 'Rooms', href: ROUTES.rooms, icon: DoorOpenIcon },
   { label: 'Members', href: ROUTES.members, icon: UsersIcon },
+  { label: 'Bookings', href: ROUTES.bookings, icon: CalendarDaysIcon },
 ];

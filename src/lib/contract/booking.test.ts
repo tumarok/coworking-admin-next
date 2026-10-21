@@ -3,6 +3,8 @@ import {
   BOOKING_STATUSES,
   BOOKING_TRANSITIONS,
   bookingInputSchema,
+  bookingPageSchema,
+  bookingSchema,
   bulkBookingRequestSchema,
   canTransition,
 } from './booking';
@@ -82,5 +84,37 @@ describe('bulkBookingRequestSchema', () => {
     expect(bulkBookingRequestSchema.safeParse({ ids: ['bk_1'], action: 'delete' }).success).toBe(
       false,
     );
+  });
+});
+
+describe('bookingSchema', () => {
+  const booking = {
+    id: 'bk_1',
+    roomId: 'room_1',
+    roomName: 'Atrium',
+    locationId: 'loc_1',
+    locationName: 'Riverside Hub',
+    memberId: 'mem_1',
+    memberName: 'Ada Lovelace',
+    startsAt: '2026-10-14T09:00:00.000Z',
+    endsAt: '2026-10-14T10:30:00.000Z',
+    attendees: 2,
+    status: 'pending',
+    notes: null,
+    totalPrice: 4500,
+    createdAt: '2026-10-01T09:00:00.000Z',
+  };
+
+  it('accepts a booking, alone and in a page', () => {
+    expect(bookingSchema.safeParse(booking).success).toBe(true);
+    expect(
+      bookingPageSchema.safeParse({ items: [booking], total: 1, page: 1, limit: 20 }).success,
+    ).toBe(true);
+  });
+
+  it('accepts the blank location and names of a booking whose room has been deleted', () => {
+    const orphan = { ...booking, roomName: '—', locationId: '', locationName: '—' };
+
+    expect(bookingSchema.safeParse(orphan).success).toBe(true);
   });
 });

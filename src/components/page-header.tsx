@@ -7,6 +7,7 @@ export function PageHeader({
   subtitle,
   back,
   actions,
+  titleRef,
 }: {
   title: string;
   subtitle?: string;
@@ -14,6 +15,8 @@ export function PageHeader({
   back?: { href: Route; label: string };
   /** Buttons and controls shown on the right. */
   actions?: React.ReactNode;
+  /** Lets a screen move focus to the title when the control the user pressed disappears. */
+  titleRef?: React.Ref<HTMLHeadingElement>;
 }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-4">
@@ -27,7 +30,13 @@ export function PageHeader({
             {back.label}
           </Link>
         )}
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+        <h1
+          ref={titleRef}
+          tabIndex={titleRef ? -1 : undefined}
+          className="text-2xl font-bold tracking-tight outline-none"
+        >
+          {title}
+        </h1>
         {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

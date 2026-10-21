@@ -45,6 +45,20 @@ describe('useListParams', () => {
     expect(result.current.query).toMatchObject({ status: 'inactive' });
   });
 
+  it('tests a filter with a function when one is given', () => {
+    const isEven = (value: string) => Number(value) % 2 === 0;
+    const { result } = renderHookWithProviders(() => useListParams(FILTERS, { status: isEven }), {
+      searchParams: '?status=3&type=4',
+    });
+
+    expect(result.current.filters).toEqual({ status: '', type: '4' });
+    expect(
+      renderHookWithProviders(() => useListParams(FILTERS, { status: isEven }), {
+        searchParams: '?status=8',
+      }).result.current.filters.status,
+    ).toBe('8');
+  });
+
   it.each([['?page=0'], ['?page=-4'], ['?page=abc']])('treats %s as page 1', (search) => {
     expect(render(search).result.current.page).toBe(1);
   });

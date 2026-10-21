@@ -1,3 +1,4 @@
+import { createRef } from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { PageHeader } from './page-header';
@@ -7,6 +8,14 @@ describe('PageHeader', () => {
     render(<PageHeader title="Rooms" />);
 
     expect(screen.getByRole('heading', { level: 1, name: 'Rooms' })).toBeInTheDocument();
+  });
+
+  it('makes the heading focusable by script when given a ref', () => {
+    const ref = createRef<HTMLHeadingElement>();
+    render(<PageHeader title="Rooms" titleRef={ref} />);
+
+    ref.current?.focus();
+    expect(screen.getByRole('heading', { level: 1, name: 'Rooms' })).toHaveFocus();
   });
 
   it('shows the subtitle and the actions when given', () => {

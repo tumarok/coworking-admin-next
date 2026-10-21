@@ -121,6 +121,26 @@ describe('mock API', () => {
       expect(call('GET', `/rooms/${room.id}`).status).toBe(404);
     });
 
+    it('prints a booking of a deleted room with a dash for its names and no location', () => {
+      const template = api.db.bookings.find((b) => Date.parse(b.endsAt) <= NOW);
+      if (!template) throw new Error('seed lacks a past booking');
+      // A room whose only booking is over can be deleted; the booking stays.
+      const room = call('POST', '/rooms', roomInput).body as Room;
+      const past = { ...template, id: 'bk_past', roomId: room.id, status: 'completed' as const };
+      api.db.bookings.push(past);
+
+      expect(call('DELETE', `/rooms/${room.id}`).status).toBe(204);
+      const res = call('GET', `/bookings/${past.id}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({
+        id: past.id,
+        roomName: '—',
+        locationId: '',
+        locationName: '—',
+      });
+    });
+
     it('refuses to delete a room with upcoming bookings', () => {
       const booking = api.db.bookings.find(
         (b) => Date.parse(b.endsAt) > NOW && ['pending', 'confirmed'].includes(b.status),

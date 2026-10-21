@@ -12,9 +12,12 @@ export const applyServerErrors = <T extends FieldValues>(
   error: unknown,
   setError: UseFormSetError<T>,
   fields: readonly Path<T>[],
+  aliases: Readonly<Record<string, Path<T>>> = {},
 ): string | null => {
   if (!(error instanceof ApiError)) return UNEXPECTED;
-  const entries = Object.entries(error.fieldErrors ?? {});
+  const entries = Object.entries(error.fieldErrors ?? {}).map(
+    ([field, message]) => [aliases[field] ?? field, message] as const,
+  );
   const known = entries.filter(([field]) => (fields as readonly string[]).includes(field));
   known.forEach(([field, message], index) => {
     setError(field as Path<T>, { type: 'server', message }, { shouldFocus: index === 0 });

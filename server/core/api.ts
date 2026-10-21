@@ -75,6 +75,26 @@ const matches = (q: string | undefined, ...fields: (string | null | undefined)[]
   return fields.some((f) => f?.toLowerCase().includes(needle));
 };
 
+/**
+ * A booking as the API prints it: the record plus the names of its room, location and member. A
+ * deleted room or member leaves `'—'` for its name, and `''` for the location id.
+ */
+export const toBookingView = (
+  db: Pick<Db, 'rooms' | 'locations' | 'members'>,
+  b: BookingRecord,
+) => {
+  const room = db.rooms.find((r) => r.id === b.roomId);
+  const location = db.locations.find((l) => l.id === room?.locationId);
+  const member = db.members.find((m) => m.id === b.memberId);
+  return {
+    ...b,
+    roomName: room?.name ?? '—',
+    locationId: location?.id ?? '',
+    locationName: location?.name ?? '—',
+    memberName: member ? memberFullName(member) : '—',
+  };
+};
+
 const humanStatus = (s: BookingStatus) => s.replace('_', ' ');
 
 export interface ApiOptions extends SeedOptions {
@@ -116,18 +136,7 @@ export const createApi = (options: ApiOptions = {}): MockApi => {
     ...r,
     locationName: db.locations.find((l) => l.id === r.locationId)?.name ?? '—',
   });
-  const bookingView = (b: BookingRecord) => {
-    const room = db.rooms.find((r) => r.id === b.roomId);
-    const location = db.locations.find((l) => l.id === room?.locationId);
-    const member = db.members.find((m) => m.id === b.memberId);
-    return {
-      ...b,
-      roomName: room?.name ?? '—',
-      locationId: location?.id ?? '',
-      locationName: location?.name ?? '—',
-      memberName: member ? memberFullName(member) : '—',
-    };
-  };
+  const bookingView = (b: BookingRecord) => toBookingView(db, b);
 
   const findOr404 = <T extends { id: string }>(
     items: T[],

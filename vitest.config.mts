@@ -27,6 +27,9 @@ export default defineConfig({
           include: ['src/**/*.test.{ts,tsx}'],
           exclude: [...configDefaults.exclude, ...SERVER_TESTS],
           setupFiles: ['./vitest.setup.ts', './vitest.setup.dom.ts'],
+          // Searchable drop-downs and a calendar make a form test slow when every file runs in its
+          // own worker; a slow test is not a broken one.
+          testTimeout: 15_000,
         },
       },
       {

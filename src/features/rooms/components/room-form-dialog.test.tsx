@@ -1,5 +1,5 @@
 import { screen, waitFor, within } from '@testing-library/react';
-import { delay, http, HttpResponse } from 'msw';
+import { http, HttpResponse } from 'msw';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -356,9 +356,11 @@ describe('RoomFormDialog: failures', () => {
 
   it('locks the form and ignores Escape while the save is running', async () => {
     installMockApi({ via: 'bff' });
+    // Held by hand: a timer would race a slow machine, and the save would end before Escape.
+    const saveGate = Promise.withResolvers<undefined>();
     server.use(
       http.post('*/bff/rooms', async () => {
-        await delay(150);
+        await saveGate.promise;
         return undefined;
       }),
     );
@@ -371,6 +373,7 @@ describe('RoomFormDialog: failures', () => {
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
     await user.keyboard('{Escape}');
     expect(onOpenChange).not.toHaveBeenCalled();
+    saveGate.resolve(undefined);
     await waitFor(() => {
       expect(onSaved).toHaveBeenCalledOnce();
     });

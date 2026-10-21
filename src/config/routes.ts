@@ -8,4 +8,6 @@ export const ROUTES = {
   room: (id: string) => `/rooms/${encodeURIComponent(id)}` as const,
   members: '/members',
   member: (id: string) => `/members/${encodeURIComponent(id)}` as const,
+  bookings: '/bookings',
+  booking: (id: string) => `/bookings/${encodeURIComponent(id)}` as const,
 } as const;

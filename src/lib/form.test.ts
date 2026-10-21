@@ -28,6 +28,29 @@ describe('applyServerErrors', () => {
     );
   });
 
+  it('puts a message under the form field an API field is shown as', () => {
+    const setError = vi.fn();
+    const error = new ApiError(422, {
+      message: 'Validation failed',
+      fieldErrors: { startsAt: 'Outside opening hours', name: 'Taken' },
+    });
+
+    expect(
+      applyServerErrors(error, setError, ['startTime', 'name'], { startsAt: 'startTime' }),
+    ).toBeNull();
+
+    expect(setError).toHaveBeenCalledWith(
+      'startTime',
+      { type: 'server', message: 'Outside opening hours' },
+      { shouldFocus: true },
+    );
+    expect(setError).toHaveBeenCalledWith(
+      'name',
+      { type: 'server', message: 'Taken' },
+      { shouldFocus: false },
+    );
+  });
+
   it('returns the API message when a field is not part of the form', () => {
     const setError = vi.fn();
     const error = new ApiError(422, {

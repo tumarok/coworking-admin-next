@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { bookingKeys } from '@/features/bookings/api/booking-keys';
 import { locationKeys } from '@/features/locations/api/location-keys';
 import { memberKeys } from '@/features/members/api/member-keys';
 import { roomKeys } from '@/features/rooms/api/room-keys';
@@ -10,6 +11,7 @@ const FACTORIES = {
   locations: locationKeys,
   rooms: roomKeys,
   members: memberKeys,
+  bookings: bookingKeys,
 } satisfies Partial<Record<keyof typeof QUERY_ROOTS, { all: readonly unknown[] }>>;
 
 describe('QUERY_ROOTS', () => {

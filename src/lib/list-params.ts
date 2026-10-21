@@ -24,12 +24,12 @@ const filterParsers = <K extends string>(keys: readonly K[]) =>
  * List state kept in the URL: `page`, `limit`, `q` and the given filter keys (all strings).
  * Any change other than the page itself (search, a filter, the page size) goes back to page 1.
  * `filterKeys` must be a constant, not a literal written in the render. `allowed` lists the values
- * a filter accepts: anything else in a hand-edited URL counts as no filter instead of becoming a
- * request the API answers with a 422.
+ * a filter accepts, or tests them with a function (a date): anything else in a hand-edited URL
+ * counts as no filter instead of becoming a request the API answers with a 422.
  */
 export const useListParams = <K extends string = never>(
   filterKeys: readonly K[] = [],
-  allowed: Partial<Record<K, readonly string[]>> = {},
+  allowed: Partial<Record<K, readonly string[] | ((value: string) => boolean)>> = {},
 ) => {
   const [state, setState] = useQueryStates(
     {
@@ -55,7 +55,9 @@ export const useListParams = <K extends string = never>(
     filterKeys.map((key) => {
       const value = String(values[key]);
       const accepted = allowed[key];
-      return [key, accepted && !accepted.includes(value) ? '' : value];
+      const valid =
+        !accepted || (typeof accepted === 'function' ? accepted(value) : accepted.includes(value));
+      return [key, valid ? value : ''];
     }),
   ) as Record<K, string>;
 

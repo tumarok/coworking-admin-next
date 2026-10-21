@@ -1,6 +1,6 @@
 import * as z from 'zod';
 
-import { idSchema, isoDateSchema, isoDateTimeSchema, pageQuerySchema } from './common.ts';
+import { idSchema, isoDateSchema, isoDateTimeSchema, pageOf, pageQuerySchema } from './common.ts';
 
 export const BOOKING_STATUSES = [
   'pending',
@@ -33,7 +33,8 @@ export const bookingSchema = z.object({
   id: idSchema,
   roomId: idSchema,
   roomName: z.string(),
-  locationId: idSchema,
+  /** Empty when the room, and with it the location, has been deleted. */
+  locationId: z.string(),
   locationName: z.string(),
   memberId: idSchema,
   memberName: z.string(),
@@ -46,6 +47,8 @@ export const bookingSchema = z.object({
   totalPrice: z.number().int().min(0),
   createdAt: isoDateTimeSchema,
 });
+
+export const bookingPageSchema = pageOf(bookingSchema);
 
 export const bookingInputSchema = z
   .object({

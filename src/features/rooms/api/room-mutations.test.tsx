@@ -1,7 +1,7 @@
 import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { QUERY_ROOTS } from '@/config/query-roots';
+import { lookupKey, QUERY_ROOTS } from '@/config/query-roots';
 import { ApiError } from '@/lib/api/errors';
 import type { RoomInput } from '@/lib/contract/room';
 import { installMockApi } from '@/test/mock-api';
@@ -126,6 +126,21 @@ describe('useDeleteRoom', () => {
       [QUERY_ROOTS.dashboard],
       [QUERY_ROOTS.bookings],
     ]);
+  });
+
+  it('drops the by-id lookups of the room other features keep, and only those', async () => {
+    installMockApi({ via: 'bff' });
+    const { result, queryClient } = renderHookWithProviders(() => useDeleteRoom());
+    const gone = lookupKey(QUERY_ROOTS.bookings, QUERY_ROOTS.rooms, 'room_e');
+    const otherRoom = lookupKey(QUERY_ROOTS.bookings, QUERY_ROOTS.rooms, 'room_f');
+    const otherEntity = lookupKey(QUERY_ROOTS.bookings, QUERY_ROOTS.members, 'room_e');
+    for (const key of [gone, otherRoom, otherEntity]) queryClient.setQueryData(key, { id: 'x' });
+
+    await result.current.mutateAsync('room_e');
+
+    expect(queryClient.getQueryData(gone)).toBeUndefined();
+    expect(queryClient.getQueryData(otherRoom)).toEqual({ id: 'x' });
+    expect(queryClient.getQueryData(otherEntity)).toEqual({ id: 'x' });
   });
 
   it('leaves the cache alone when the API refuses', async () => {
