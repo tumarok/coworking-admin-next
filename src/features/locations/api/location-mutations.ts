@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { QUERY_ROOTS } from '@/config/query-roots';
+import { isLookupOf, QUERY_ROOTS } from '@/config/query-roots';
 import { api } from '@/lib/api/client';
 import { locationSchema, type LocationInput } from '@/lib/contract/location';
 import { locationKeys } from '@/features/locations/api/location-keys';
@@ -22,6 +22,8 @@ export const useCreateLocation = () => {
     meta: SILENT,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: locationKeys.all });
+      // Rooms keep their own drop-down of locations: the new one must be found there.
+      void queryClient.invalidateQueries({ queryKey: [QUERY_ROOTS.rooms] });
       void queryClient.invalidateQueries({ queryKey: [QUERY_ROOTS.dashboard] });
     },
   });
@@ -49,6 +51,8 @@ export const useDeleteLocation = () => {
     onSuccess: (_result, id) => {
       // The record is gone: dropping it keeps a refetch of the details page from asking for it.
       queryClient.removeQueries({ queryKey: locationKeys.detail(id) });
+      // So are the by-id lookups other features keep (a room form naming its location).
+      queryClient.removeQueries({ predicate: isLookupOf(QUERY_ROOTS.locations, id) });
       void queryClient.invalidateQueries({ queryKey: locationKeys.all });
       invalidateDependents(queryClient);
     },

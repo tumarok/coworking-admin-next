@@ -1,7 +1,7 @@
 import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { QUERY_ROOTS } from '@/config/query-roots';
+import { lookupKey, QUERY_ROOTS } from '@/config/query-roots';
 import { ApiError } from '@/lib/api/errors';
 import type { LocationInput } from '@/lib/contract/location';
 import { installMockApi } from '@/test/mock-api';
@@ -29,7 +29,7 @@ const invalidatedRoots = (spy: { mock: { calls: unknown[][] } }) =>
   spy.mock.calls.map(([filters]) => (filters as { queryKey: unknown[] }).queryKey);
 
 describe('useCreateLocation', () => {
-  it('creates the location and refreshes the feature and the dashboard', async () => {
+  it('creates the location and refreshes the feature, the room drop-down that lists it and the dashboard', async () => {
     installMockApi({ via: 'bff' });
     const { result, queryClient } = renderHookWithProviders(() => useCreateLocation());
     const spy = vi.spyOn(queryClient, 'invalidateQueries');
@@ -37,7 +37,11 @@ describe('useCreateLocation', () => {
     const created = await result.current.mutateAsync(INPUT);
 
     expect(created).toMatchObject({ name: 'Garden Annex', roomCount: 0 });
-    expect(invalidatedRoots(spy)).toEqual([locationKeys.all, [QUERY_ROOTS.dashboard]]);
+    expect(invalidatedRoots(spy)).toEqual([
+      locationKeys.all,
+      [QUERY_ROOTS.rooms],
+      [QUERY_ROOTS.dashboard],
+    ]);
   });
 
   it('keeps the error for the form instead of toasting it', async () => {
@@ -99,6 +103,33 @@ describe('useDeleteLocation', () => {
       [QUERY_ROOTS.bookings],
       [QUERY_ROOTS.dashboard],
     ]);
+  });
+
+  it('drops the by-id lookups other features keep of the location instead of refetching them', async () => {
+    const api = installMockApi({ via: 'bff' });
+    api.db.locations.push({ ...INPUT, id: 'loc_empty' });
+    const { result, queryClient } = renderHookWithProviders(() => useDeleteLocation());
+    const gone = lookupKey(QUERY_ROOTS.rooms, QUERY_ROOTS.locations, 'loc_empty');
+    const otherLocation = lookupKey(QUERY_ROOTS.rooms, QUERY_ROOTS.locations, 'loc_1');
+    const otherEntity = lookupKey(QUERY_ROOTS.rooms, QUERY_ROOTS.members, 'loc_empty');
+    for (const key of [gone, otherLocation, otherEntity]) queryClient.setQueryData(key, { key });
+
+    await result.current.mutateAsync('loc_empty');
+
+    expect(queryClient.getQueryData(gone)).toBeUndefined();
+    expect(queryClient.getQueryData(otherLocation)).toBeDefined();
+    expect(queryClient.getQueryData(otherEntity)).toBeDefined();
+  });
+
+  it('keeps the lookups when the API refuses to delete', async () => {
+    installMockApi({ via: 'bff' });
+    const { result, queryClient } = renderHookWithProviders(() => useDeleteLocation());
+    const key = lookupKey(QUERY_ROOTS.rooms, QUERY_ROOTS.locations, 'loc_1');
+    queryClient.setQueryData(key, { id: 'loc_1' });
+
+    await expect(result.current.mutateAsync('loc_1')).rejects.toMatchObject({ status: 409 });
+
+    expect(queryClient.getQueryData(key)).toEqual({ id: 'loc_1' });
   });
 
   it('leaves the cache alone when the API refuses', async () => {

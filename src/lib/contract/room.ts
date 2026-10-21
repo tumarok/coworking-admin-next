@@ -1,6 +1,6 @@
 import * as z from 'zod';
 
-import { idSchema, pageQuerySchema } from './common.ts';
+import { idSchema, pageOf, pageQuerySchema } from './common.ts';
 
 export const ROOM_TYPES = ['meeting_room', 'private_office', 'hot_desk', 'event_space'] as const;
 export const ROOM_STATUSES = ['available', 'maintenance', 'retired'] as const;
@@ -12,6 +12,10 @@ export const AMENITIES = [
   'standing_desks',
   'natural_light',
 ] as const;
+
+/** Upper bounds of the input, shared with the form so both report the same limits. */
+export const MAX_CAPACITY = 200;
+export const MAX_HOURLY_RATE_CENTS = 1_000_000;
 
 export const roomTypeSchema = z.enum(ROOM_TYPES);
 export const roomStatusSchema = z.enum(ROOM_STATUSES);
@@ -30,12 +34,14 @@ export const roomSchema = z.object({
   status: roomStatusSchema,
 });
 
+export const roomPageSchema = pageOf(roomSchema);
+
 export const roomInputSchema = z.object({
   locationId: idSchema.describe('Location'),
   name: z.string().trim().min(2, { error: 'At least 2 characters' }).max(60),
   type: roomTypeSchema,
-  capacity: z.number().int().min(1, { error: 'At least 1 seat' }).max(200),
-  hourlyRate: z.number().int().min(0, { error: 'Cannot be negative' }).max(1_000_000),
+  capacity: z.number().int().min(1, { error: 'At least 1 seat' }).max(MAX_CAPACITY),
+  hourlyRate: z.number().int().min(0, { error: 'Cannot be negative' }).max(MAX_HOURLY_RATE_CENTS),
   amenities: z.array(amenitySchema),
   status: roomStatusSchema,
 });

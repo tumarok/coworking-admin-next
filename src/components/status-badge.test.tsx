@@ -1,7 +1,12 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { BookingStatus } from '@/lib/contract/booking';
-import { BookingStatusBadge, LocationStatusBadge, StatusBadge } from './status-badge';
+import {
+  BookingStatusBadge,
+  LocationStatusBadge,
+  RoomStatusBadge,
+  StatusBadge,
+} from './status-badge';
 
 describe('StatusBadge', () => {
   it('spells the status out as text', () => {
@@ -64,6 +69,18 @@ describe('LocationStatusBadge', () => {
     ['inactive', 'Inactive', 'text-status-neutral'],
   ] as const)('shows %s as "%s" in %s', (status, label, className) => {
     render(<LocationStatusBadge status={status} />);
+
+    expect(screen.getByText(label)).toHaveClass(className);
+  });
+});
+
+describe('RoomStatusBadge', () => {
+  it.each([
+    ['available', 'Available', 'text-status-success'],
+    ['maintenance', 'Maintenance', 'text-status-warning'],
+    ['retired', 'Retired', 'text-status-neutral'],
+  ] as const)('shows %s as "%s" in %s', (status, label, className) => {
+    render(<RoomStatusBadge status={status} />);
 
     expect(screen.getByText(label)).toHaveClass(className);
   });

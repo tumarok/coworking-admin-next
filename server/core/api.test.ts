@@ -4,6 +4,7 @@ import type { LoginResponse } from '../../src/lib/contract/auth.ts';
 import type { Booking } from '../../src/lib/contract/booking.ts';
 import type { Page } from '../../src/lib/contract/common.ts';
 import { dashboardSchema } from '../../src/lib/contract/dashboard.ts';
+import { type Room, type RoomInput, roomPageSchema } from '../../src/lib/contract/room.ts';
 
 import { type MockApi, createApi } from './api.ts';
 import { DEMO_PASSWORD } from './db.ts';
@@ -60,6 +61,78 @@ describe('mock API', () => {
   it('refuses to delete a location that still has rooms', () => {
     const location = api.db.locations[0];
     expect(call('DELETE', `/locations/${location?.id}`).status).toBe(409);
+  });
+
+  describe('rooms', () => {
+    const roomInput: RoomInput = {
+      locationId: 'loc_1',
+      name: 'Garden Annex',
+      type: 'meeting_room',
+      capacity: 8,
+      hourlyRate: 3250,
+      amenities: ['projector', 'whiteboard'],
+      status: 'available',
+    };
+    const rooms = (query: Record<string, string> = {}) =>
+      roomPageSchema.parse(call('GET', '/rooms', undefined, { limit: '100', ...query }).body);
+
+    it('lists rooms by location and name, and filters by location, type and search', () => {
+      const all = rooms().items;
+      const sorted = all.toSorted(
+        (a, b) => a.locationName.localeCompare(b.locationName) || a.name.localeCompare(b.name),
+      );
+      expect(all).toEqual(sorted);
+
+      const here = rooms({ locationId: 'loc_1' }).items;
+      expect(here.length).toBeGreaterThan(0);
+      expect(here.every((r) => r.locationId === 'loc_1')).toBe(true);
+      expect(rooms({ type: 'hot_desk' }).items.every((r) => r.type === 'hot_desk')).toBe(true);
+
+      const first = all[0] as Room;
+      expect(rooms({ q: first.name.toUpperCase() }).items).toContainEqual(first);
+      expect(call('GET', '/rooms', undefined, { type: 'bogus' }).status).toBe(422);
+    });
+
+    it('creates, updates and reads a room, pricing in cents', () => {
+      const created = call('POST', '/rooms', roomInput);
+      expect(created.status).toBe(201);
+      const room = created.body as Room;
+      expect(room).toMatchObject({ ...roomInput, locationName: 'Riverside Hub' });
+
+      const updated = call('PATCH', `/rooms/${room.id}`, { ...roomInput, hourlyRate: 4000 });
+      expect(updated.body).toMatchObject({ id: room.id, hourlyRate: 4000 });
+      expect(call('GET', `/rooms/${room.id}`).body).toMatchObject({ hourlyRate: 4000 });
+    });
+
+    it('refuses a room in an unknown location and a negative rate', () => {
+      const unknown = call('POST', '/rooms', { ...roomInput, locationId: 'loc_nope' });
+      expect(unknown.status).toBe(422);
+      expect(unknown.body).toMatchObject({ fieldErrors: { locationId: 'Location not found' } });
+
+      const negative = call('POST', '/rooms', { ...roomInput, hourlyRate: -1 });
+      expect(negative.body).toMatchObject({ fieldErrors: { hourlyRate: 'Cannot be negative' } });
+    });
+
+    it('deletes a room nobody booked and answers 404 afterwards', () => {
+      const room = call('POST', '/rooms', roomInput).body as Room;
+
+      expect(call('DELETE', `/rooms/${room.id}`).status).toBe(204);
+      expect(call('GET', `/rooms/${room.id}`).status).toBe(404);
+    });
+
+    it('refuses to delete a room with upcoming bookings', () => {
+      const booking = api.db.bookings.find(
+        (b) => Date.parse(b.endsAt) > NOW && ['pending', 'confirmed'].includes(b.status),
+      );
+      if (!booking) throw new Error('seed lacks an upcoming booking');
+
+      const res = call('DELETE', `/rooms/${booking.roomId}`);
+
+      expect(res.status).toBe(409);
+      expect(res.body).toMatchObject({
+        message: 'This room has upcoming bookings; cancel them first',
+      });
+    });
   });
 
   it('confirms what it can in bulk and explains the rest', () => {

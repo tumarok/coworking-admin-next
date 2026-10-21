@@ -1,5 +1,5 @@
 import type { Route } from 'next';
-import { LayoutDashboardIcon, MapPinIcon, type LucideIcon } from 'lucide-react';
+import { DoorOpenIcon, LayoutDashboardIcon, MapPinIcon, type LucideIcon } from 'lucide-react';
 import { ROUTES } from '@/config/routes';
 
 export interface NavItem {
@@ -12,4 +12,5 @@ export interface NavItem {
 export const NAV_ITEMS: readonly NavItem[] = [
   { label: 'Dashboard', href: ROUTES.dashboard, icon: LayoutDashboardIcon },
   { label: 'Locations', href: ROUTES.locations, icon: MapPinIcon },
+  { label: 'Rooms', href: ROUTES.rooms, icon: DoorOpenIcon },
 ];

@@ -4,4 +4,6 @@ export const ROUTES = {
   login: '/login',
   locations: '/locations',
   location: (id: string) => `/locations/${encodeURIComponent(id)}` as const,
+  rooms: '/rooms',
+  room: (id: string) => `/rooms/${encodeURIComponent(id)}` as const,
 } as const;
