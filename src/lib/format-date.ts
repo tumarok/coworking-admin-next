@@ -38,3 +38,19 @@ export const formatTimeRange = (startsAt: string, endsAt: string, timeZone: stri
 /** Hours between two instants, as a number (`1.5`). */
 export const durationHours = (startsAt: string, endsAt: string) =>
   (Date.parse(endsAt) - Date.parse(startsAt)) / 3_600_000;
+
+/** The zone shown for a time whose location is gone or not loaded. */
+export const FALLBACK_ZONE = 'UTC';
+
+/** `formatTimeRange` on the clock of `zone`; UTC, said so, if the zone is unknown. */
+export const formatTimeRangeIn = (startsAt: string, endsAt: string, zone: string | undefined) =>
+  zone
+    ? formatTimeRange(startsAt, endsAt, zone)
+    : `${formatTimeRange(startsAt, endsAt, FALLBACK_ZONE)} UTC`;
+
+/** `formatDateTime` on the clock of `zone`; UTC, said so, if the zone is unknown. */
+export const formatDateTimeIn = (iso: string, zone: string | undefined) =>
+  zone ? formatDateTime(iso, zone) : `${formatDateTime(iso, FALLBACK_ZONE)} UTC`;
+
+/** Today's calendar date in UTC, `2026-10-14`: the day the API means when no date is given. */
+export const todayUtc = (now = Date.now()) => new Date(now).toISOString().slice(0, 10);

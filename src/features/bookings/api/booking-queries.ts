@@ -1,8 +1,7 @@
 import { keepPreviousData, queryOptions } from '@tanstack/react-query';
+import { fetchAllLocations } from '@/lib/api/all-locations';
 import { api } from '@/lib/api/client';
 import { bookingPageSchema, bookingSchema } from '@/lib/contract/booking';
-import { MAX_PAGE_SIZE } from '@/lib/contract/common';
-import { locationPageSchema } from '@/lib/contract/location';
 import { memberPageSchema, memberSchema } from '@/lib/contract/member';
 import { roomPageSchema, roomSchema } from '@/lib/contract/room';
 import type { ListQuery } from '@/lib/list-params';
@@ -27,33 +26,14 @@ export const bookingQuery = (id: string) =>
     meta: { silent: true },
   });
 
-/** More pages than this are not read: a safeguard against a server that never stops growing. */
-const MAX_LOCATION_PAGES = 20;
-
 /**
  * Every location: a booking carries no time zone, so its location's is looked up here, and the
- * location filter lists these. The API sends at most 100 per page, so the pages are read until
- * the total is covered. A failure is shown by the screens as a UTC fallback, not as a toast.
+ * location filter lists these. A failure is shown by the screens as a UTC fallback, not as a toast.
  */
 export const locationsQuery = () =>
   queryOptions({
     queryKey: bookingKeys.locations(),
-    queryFn: async ({ signal }) => {
-      const first = await api.get('locations', locationPageSchema, {
-        query: { limit: MAX_PAGE_SIZE },
-        signal,
-      });
-      const items = [...first.items];
-      for (let page = 2; items.length < first.total && page <= MAX_LOCATION_PAGES; page += 1) {
-        const next = await api.get('locations', locationPageSchema, {
-          query: { limit: MAX_PAGE_SIZE, page },
-          signal,
-        });
-        if (next.items.length === 0) break;
-        items.push(...next.items);
-      }
-      return { ...first, items };
-    },
+    queryFn: ({ signal }) => fetchAllLocations(signal),
     meta: { silent: true },
     // Screens swap a placeholder for the page while this loads; a failed answer retried by every
     // component that mounts would flip them back and forth.

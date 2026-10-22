@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { durationHours, formatDate, formatDateTime, formatTimeRange } from './format-date';
+import {
+  durationHours,
+  formatDate,
+  formatDateTime,
+  formatDateTimeIn,
+  formatTimeRange,
+  formatTimeRangeIn,
+  todayUtc,
+} from './format-date';
 
 describe('formatDate', () => {
   it('prints a calendar date as day, short month and year', () => {
@@ -81,5 +89,27 @@ describe('durationHours', () => {
   it('counts hours, with a fraction', () => {
     expect(durationHours('2026-10-14T09:00:00.000Z', '2026-10-14T10:30:00.000Z')).toBe(1.5);
     expect(durationHours('2026-10-14T09:00:00.000Z', '2026-10-14T17:00:00.000Z')).toBe(8);
+  });
+});
+
+describe('formatTimeRangeIn and formatDateTimeIn', () => {
+  const start = '2026-07-01T06:00:00.000Z';
+  const end = '2026-07-01T07:30:00.000Z';
+
+  it('print on the clock of the zone', () => {
+    expect(formatTimeRangeIn(start, end, 'Europe/Kyiv')).toBe('1 Jul 2026, 09:00–10:30');
+    expect(formatDateTimeIn(start, 'Europe/Lisbon')).toBe('1 Jul 2026, 07:00');
+  });
+
+  it('fall back to UTC and say so when the zone is unknown', () => {
+    expect(formatTimeRangeIn(start, end, undefined)).toBe('1 Jul 2026, 06:00–07:30 UTC');
+    expect(formatDateTimeIn(start, undefined)).toBe('1 Jul 2026, 06:00 UTC');
+  });
+});
+
+describe('todayUtc', () => {
+  it('is the UTC calendar date of the instant, whatever zone the machine runs in', () => {
+    expect(todayUtc(Date.parse('2026-10-14T23:59:59.000Z'))).toBe('2026-10-14');
+    expect(todayUtc(Date.parse('2026-10-15T00:00:00.000Z'))).toBe('2026-10-15');
   });
 });

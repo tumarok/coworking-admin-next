@@ -45,9 +45,6 @@ export const roomLabel = (room: Room) =>
 export const memberLabel = (member: Member) => `${memberFullName(member)} · ${member.email}`;
 export const locationOptionLabel = (location: Location) => `${location.name} (${location.city})`;
 
-/** The zone shown for a booking whose location is gone (or not loaded). */
-export const FALLBACK_ZONE = 'UTC';
-
 /** Button of a status change on a booking: label, look, and whether it asks first. */
 export interface StatusAction {
   label: string;
