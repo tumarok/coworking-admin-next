@@ -4,6 +4,25 @@
   "private": true,
   "type": "module",
   "license": "MIT",
+  "description": "Admin console for coworking spaces: Next.js 16 (App Router) as a backend-for-frontend over a REST API with an in-repo mock backend.",
+  "keywords": [
+    "nextjs",
+    "react",
+    "app-router",
+    "tanstack-query",
+    "shadcn-ui",
+    "tailwindcss",
+    "playwright",
+    "docker"
+  ],
+  "homepage": "https://github.com/tumarok/coworking-admin-next#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tumarok/coworking-admin-next.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tumarok/coworking-admin-next/issues"
+  },
   "engines": {
     "node": ">=24"
   },
