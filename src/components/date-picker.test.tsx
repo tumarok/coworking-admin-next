@@ -36,8 +36,43 @@ describe('DatePicker', () => {
       </FormField>,
     );
 
-    expect(screen.getByRole('button', { name: 'Date, 15 Jun 2027' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Date, 15 Jun 2027, required' })).toBeInTheDocument();
     expect(screen.getByLabelText(/^Date/)).toBe(screen.getByRole('button'));
+  });
+
+  it('leaves "required" out of the name when the field is optional', () => {
+    render(
+      <FormField label="Date">
+        {(control) => (
+          <DatePicker {...control} label="Date" value="2027-06-15" onChange={vi.fn()} />
+        )}
+      </FormField>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Date, 15 Jun 2027' })).toBeInTheDocument();
+  });
+
+  it('says a required field is required in the name, not in `aria-required`', () => {
+    render(
+      <FormField label="Date" required>
+        {(control) => <DatePicker {...control} label="Date" value="" onChange={vi.fn()} />}
+      </FormField>,
+    );
+
+    const button = screen.getByRole('button');
+    expect(button).not.toHaveAttribute('aria-required');
+    expect(button).toHaveAccessibleName('Date, Pick a date, required');
+  });
+
+  it('names the calendar, and each day by the number it shows', async () => {
+    const user = userEvent.setup();
+    render(<DatePicker label="Date" value="2027-06-15" onChange={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: /^Date/ }));
+
+    expect(await screen.findByRole('dialog', { name: 'Date calendar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '15 June 2027, selected' })).toHaveTextContent('15');
+    expect(screen.getByRole('button', { name: '16 June 2027' })).toHaveTextContent('16');
   });
 
   it('asks for a date while there is none', () => {
@@ -68,7 +103,7 @@ describe('DatePicker', () => {
     render(<Controlled initial="2027-06-15" onChange={onChange} />);
 
     await user.click(screen.getByRole('button', { name: /^Date/ }));
-    await user.click(await screen.findByRole('button', { name: /June 3rd, 2027/ }));
+    await user.click(await screen.findByRole('button', { name: /^3 June 2027$/ }));
 
     expect(onChange).toHaveBeenCalledWith('2027-06-03');
     expect(screen.getByRole('button', { name: /^Date/ })).toHaveTextContent('3 Jun 2027');

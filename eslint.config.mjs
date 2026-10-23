@@ -185,6 +185,25 @@ export default defineConfig([
     files: ['server/**', 'src/test/mock-api.ts'],
     rules: { 'no-restricted-imports': 'off' },
   },
+  // The end-to-end suite drives the built app from outside; it imports nothing of it, so a test
+  // cannot pass because it shares a bug with the code it checks.
+  {
+    files: ['e2e/**', 'playwright.config.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/*', '**/src/**', '**/server/**'],
+              message: 'The e2e suite imports nothing of the app or of the mock API.',
+            },
+            { group: ['../../**'], message: 'Keep relative imports to `./` or a single `../`.' },
+          ],
+        },
+      ],
+    },
+  },
   // shadcn code guards optional props defensively.
   {
     files: ['src/components/ui/**'],

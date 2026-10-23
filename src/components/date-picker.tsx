@@ -36,6 +36,17 @@ const parseDate = (value: string) => {
   return new Date(year, month - 1, day, 12);
 };
 
+// The name of a day button starts with its visible number ("3 June 2027"), so what is on screen
+// is part of the name (WCAG 2.5.3); the default names spell the weekday first and the day last.
+const dayLabel = (date: Date, modifiers: { today?: boolean; selected?: boolean }) =>
+  [
+    modifiers.today ? 'Today, ' : '',
+    new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(
+      date,
+    ),
+    modifiers.selected ? ', selected' : '',
+  ].join('');
+
 const pad = (value: number) => String(value).padStart(2, '0');
 
 const toValue = (date: Date) =>
@@ -49,6 +60,9 @@ export function DatePicker({
   placeholder = 'Pick a date',
   className,
   ref,
+  // A button cannot be `aria-required`, and the star of the label is hidden from screen readers,
+  // so the requirement goes into the name of the button.
+  'aria-required': required,
   ...triggerProps
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
@@ -62,15 +76,16 @@ export function DatePicker({
           !value && 'text-muted-foreground',
           className,
         )}
-        aria-label={`${label}, ${text}`}
+        aria-label={`${label}, ${text}${required ? ', required' : ''}`}
         {...triggerProps}
       >
         <CalendarIcon aria-hidden />
         {text}
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent className="w-auto p-0" align="start" aria-label={`${label} calendar`}>
         <Calendar
           mode="single"
+          labels={{ labelDayButton: dayLabel }}
           selected={value ? parseDate(value) : undefined}
           defaultMonth={value ? parseDate(value) : undefined}
           onSelect={(day) => {

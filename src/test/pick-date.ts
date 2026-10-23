@@ -46,7 +46,7 @@ export const pickDate = async (
   }
   fireEvent.click(
     screen.getByRole('button', {
-      name: new RegExp(`^\\w+, ${MONTHS[month - 1]} ${day}(st|nd|rd|th), ${year}$`),
+      name: new RegExp(`^(Today, )?${day} ${MONTHS[month - 1]} ${year}(, selected)?$`),
     }),
   );
 };

@@ -17,7 +17,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run --coverage",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",
@@ -41,9 +42,11 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
     "@babel/core": "7.29.7",
     "@eslint/js": "9.39.5",
     "@faker-js/faker": "10.6.0",
+    "@playwright/test": "1.64.1",
     "@rolldown/plugin-babel": "0.2.4",
     "@tailwindcss/postcss": "4.3.3",
     "@tanstack/eslint-plugin-query": "5.104.5",
