@@ -1,11 +1,6 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup, configure } from '@testing-library/react';
+import { cleanup } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, vi } from 'vitest';
-
-// `waitFor` and `findBy*` give up after one second unless told otherwise, while a test may run for
-// 15 s (see `testTimeout`). What they wait for here comes after a request and a re-render, which a
-// loaded machine can delay past one second; a wait that ends early is not a failed one.
-configure({ asyncUtilTimeout: 5000 });
 
 // Testing Library only cleans up on its own when `globals` is enabled; imports are explicit here.
 afterEach(() => {
