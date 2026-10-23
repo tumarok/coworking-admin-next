@@ -1,0 +1,46 @@
+# The whole app on one machine: the mock API and the web server.
+#   docker compose up --build       then open http://localhost:8080
+# Sign in with admin@coworking.test / demo1234.
+name: coworking-admin-next
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    image: ghcr.io/${GHCR_OWNER:-tumarok}/coworking-admin-next-api:latest
+    init: true
+    environment:
+      MOCK_LATENCY_MS: ${MOCK_LATENCY_MS:-150}
+    ports:
+      # Only the web container needs the API. The port is published on the loopback interface
+      # for the end-to-end tests, which reset the mock and arrange data through it directly.
+      - '127.0.0.1:4010:4010'
+    healthcheck:
+      # The mock answers 401 to a request without a token, which is as good as up.
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:4010/api/v1/auth/me').then((r) => process.exit(Number(r.status !== 401)), () => process.exit(1))
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    image: ghcr.io/${GHCR_OWNER:-tumarok}/coworking-admin-next:latest
+    init: true
+    environment:
+      API_URL: http://api:4010
+      # A browser drops a Secure cookie on plain HTTP. Remove this behind HTTPS.
+      COOKIE_SECURE: 'false'
+    ports:
+      # Loopback only: the demo account is public and the session cookie is not Secure.
+      - '127.0.0.1:8080:3000'
+    depends_on:
+      api:
+        condition: service_healthy

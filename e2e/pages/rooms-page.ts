@@ -2,6 +2,7 @@ import { expect, type Locator, type Page } from '@playwright/test';
 
 import { DataTable } from './data-table';
 import { RoomFormDialog } from './room-form-dialog';
+import { searchAndPick } from './search-and-pick';
 import { ListToolbar } from './toolbar';
 
 /** `/rooms`. */
@@ -10,9 +11,9 @@ export class RoomsPage {
   readonly newRoom: Locator;
   readonly toolbar: ListToolbar;
   readonly table: DataTable;
-  /** The searchable location filter (a combobox with text), unlike the plain drop-down filters. */
-  readonly locationFilter: Locator;
   private readonly page: Page;
+  /** The searchable location filter (a combobox with text), unlike the plain drop-down filters. */
+  private readonly locationFilter: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -27,6 +28,16 @@ export class RoomsPage {
     await this.page.goto(`/rooms${query}`);
     await expect(this.heading).toBeVisible();
     await this.table.expectLoaded();
+  }
+
+  /** Finds a location with the search box of the filter and picks it. */
+  async chooseLocation(location: { name: string; city: string }): Promise<void> {
+    await searchAndPick(
+      this.page,
+      this.locationFilter,
+      location.name,
+      `${location.name} (${location.city})`,
+    );
   }
 
   async openNewRoomForm(): Promise<RoomFormDialog> {

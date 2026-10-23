@@ -1,5 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
+import { searchAndPick } from './search-and-pick';
+
 /** What every form dialog has: a title, Save and Cancel, errors under fields and a banner. */
 export abstract class FormDialog {
   readonly dialog: Locator;
@@ -65,10 +67,6 @@ export abstract class FormDialog {
    * option whose name matches.
    */
   async pick(label: string, search: string, option: string | RegExp): Promise<void> {
-    const field = this.field(label);
-    await field.click();
-    await field.fill(search);
-    await this.page.getByRole('option', { name: option }).click();
-    await expect(this.page.getByRole('option', { name: option })).toBeHidden();
+    await searchAndPick(this.page, this.field(label), search, option);
   }
 }

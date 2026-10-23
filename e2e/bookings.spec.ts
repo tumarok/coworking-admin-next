@@ -91,18 +91,16 @@ test.describe('list', () => {
     await bookings.goto();
 
     await bookings.toolbar.choose('Location', `${location.name} (${location.city})`);
-    const roomFilter = page.getByRole('combobox', { name: 'Room', exact: true });
-    await roomFilter.click();
-    await roomFilter.fill(room.name);
-    await page
-      .getByRole('option', { name: `${room.name} · ${room.locationName} (${room.capacity} seats)` })
-      .click();
-    const memberFilter = page.getByRole('combobox', { name: 'Member', exact: true });
-    await memberFilter.click();
-    await memberFilter.fill(member.email);
-    await page
-      .getByRole('option', { name: `${member.firstName} ${member.lastName} · ${member.email}` })
-      .click();
+    await bookings.pickFilter(
+      'Room',
+      room.name,
+      `${room.name} · ${room.locationName} (${room.capacity} seats)`,
+    );
+    await bookings.pickFilter(
+      'Member',
+      member.email,
+      `${member.firstName} ${member.lastName} · ${member.email}`,
+    );
 
     const filters = { locationId: location.id, roomId: room.id, memberId: member.id };
     await expect(page).toHaveURL(withQuery(filters));

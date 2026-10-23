@@ -69,9 +69,7 @@ test.describe('list', () => {
     const rooms = new RoomsPage(page);
     await rooms.goto();
 
-    await rooms.locationFilter.click();
-    await rooms.locationFilter.fill(location.name);
-    await page.getByRole('option', { name: `${location.name} (${location.city})` }).click();
+    await rooms.chooseLocation(location);
 
     await expect(page).toHaveURL(withQuery({ locationId: location.id }));
     await expect.poll(() => rooms.table.total()).toBe(total);

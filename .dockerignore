@@ -1,0 +1,19 @@
+# Version control and CI
+.git
+.github
+
+# Dependencies and build output: the images install and build their own
+node_modules
+.next
+coverage
+reports
+playwright-report
+test-results
+
+# Not needed to build either image
+e2e
+playwright.config.ts
+*.md
+*.log
+.env.local
+.env.*.local

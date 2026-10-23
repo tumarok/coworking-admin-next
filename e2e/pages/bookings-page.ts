@@ -3,6 +3,7 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { BookingFormDialog } from './booking-form-dialog';
 import { ConfirmDialog } from './confirm-dialog';
 import { DataTable } from './data-table';
+import { searchAndPick } from './search-and-pick';
 import { ListToolbar } from './toolbar';
 
 /** `/bookings`: the list, its filters and the bulk actions on the rows ticked. */
@@ -41,6 +42,20 @@ export class BookingsPage {
     await this.page.goto(`/bookings${query}`);
     await expect(this.heading).toBeVisible();
     await this.table.expectLoaded();
+  }
+
+  /** Narrows the list to a room or a member, found with the search box of the filter. */
+  async pickFilter(
+    label: 'Room' | 'Member',
+    search: string,
+    option: string | RegExp,
+  ): Promise<void> {
+    await searchAndPick(
+      this.page,
+      this.page.getByRole('combobox', { name: label, exact: true }),
+      search,
+      option,
+    );
   }
 
   async openNewBookingForm(): Promise<BookingFormDialog> {
