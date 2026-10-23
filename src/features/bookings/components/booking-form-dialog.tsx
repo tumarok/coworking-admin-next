@@ -149,9 +149,13 @@ function BookingForm({ booking, zones, pending, save, onCancel, onSaved }: Booki
   const firstInvalid = Object.keys(errors)[0] as keyof BookingFormValues | undefined;
   useEffect(() => {
     if (!focusAfterSave.current || pending) return;
-    focusAfterSave.current = false;
+    // The form unlocks and the failure shows in renders of their own, in either order. Keep the
+    // request until the render that has the field message, the conflicts or the banner.
+    const banner = conflictsRef.current ?? formErrorRef.current;
     if (firstInvalid) setFocus(firstInvalid);
-    else (conflictsRef.current ?? formErrorRef.current)?.focus();
+    else if (banner) banner.focus();
+    else return;
+    focusAfterSave.current = false;
   });
 
   const saveValues = async (values: BookingFormValues) => {

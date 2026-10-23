@@ -96,9 +96,12 @@ function LocationForm({ location, pending, save, onCancel, onSaved }: LocationFo
   const firstInvalid = Object.keys(errors)[0] as keyof LocationFormValues | undefined;
   useEffect(() => {
     if (!focusAfterSave.current || pending) return;
-    focusAfterSave.current = false;
+    // The form unlocks and the failure shows in renders of their own, in either order. Keep the
+    // request until the render that has the field message or the banner.
     if (firstInvalid) setFocus(firstInvalid);
-    else formErrorRef.current?.focus();
+    else if (formErrorRef.current) formErrorRef.current.focus();
+    else return;
+    focusAfterSave.current = false;
   });
 
   const saveValues = async (values: LocationFormValues) => {
